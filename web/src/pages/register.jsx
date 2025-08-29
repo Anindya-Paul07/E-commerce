@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { api } from '../lib/api'
+import { useNavigate, Link } from 'react-router-dom'
+import { api } from '@/lib/api'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function Register() {
   const navigate = useNavigate()
@@ -25,15 +27,26 @@ export default function Register() {
   }
 
   return (
-    <div>
-      <h2>Create account</h2>
-      <form onSubmit={onSubmit} style={{ display:'grid', gap:12, maxWidth:360 }}>
-        <input placeholder="Name" value={name} onChange={e=>setName(e.target.value)} required />
-        <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} required />
-        <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} required />
-        <button disabled={loading}>{loading ? 'Creating…' : 'Create'}</button>
-      </form>
-      {err && <p style={{ color:'crimson', marginTop:12 }}>{err}</p>}
+    <div className="container py-10">
+      <div className="mx-auto max-w-md">
+        <Card>
+          <CardHeader>
+            <CardTitle>Create account</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={onSubmit} className="grid gap-3">
+              <input className="h-10 rounded-md border bg-background px-3" placeholder="Name" value={name} onChange={e=>setName(e.target.value)} required />
+              <input className="h-10 rounded-md border bg-background px-3" type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} required />
+              <input className="h-10 rounded-md border bg-background px-3" type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} required />
+              <Button disabled={loading}>{loading ? 'Creating…' : 'Create'}</Button>
+              {err && <p className="text-sm text-red-600">{err}</p>}
+            </form>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Already have an account? <Link to="/login" className="underline">Sign in</Link>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

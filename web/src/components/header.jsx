@@ -1,11 +1,9 @@
 export default function Header() {
   return (
-    <header style={{ background:'#fafafa', borderBottom:'1px solid #eee' }}>
-      <div style={{ maxWidth:960, margin:'0 auto', padding:'16px' }}>
-        <h1 style={{ margin:0 }}>E-Commerce</h1>
-        <p style={{ margin:'6px 0 0 0', color:'#666' }}>
-          E-Commerce Store
-        </p>
+    <header className="border-b bg-muted/30">
+      <div className="container py-8">
+        <h1 className="text-2xl font-bold tracking-tight">Discover your next favorite</h1>
+        <p className="text-muted-foreground">Fresh arrivals, fair prices, fast checkout.</p>
       </div>
     </header>
   )

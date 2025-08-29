@@ -1,6 +1,6 @@
-import Navbar from '../components/navbar'
-import Header from '../components/header'
-import Footer from '../components/footer'
+import Navbar from '@/components/navbar'
+import Header from '@/components/header'
+import Footer from '@/components/footer'
 import { Outlet } from 'react-router-dom'
 
 export default function RootLayout() {
@@ -8,7 +8,7 @@ export default function RootLayout() {
     <>
       <Navbar />
       <Header />
-      <main style={{ maxWidth: 960, margin: '2rem auto', padding: '0 16px' }}>
+      <main className="py-8">
         <Outlet />
       </main>
       <Footer />
