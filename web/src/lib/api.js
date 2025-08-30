@@ -1,4 +1,4 @@
-const BASE = '/api'; // proxied to http://localhost:5000
+const BASE = 'http://localhost:5000/api'; // proxied to http://localhost:5000
 
 async function req(path, opts = {}) {
   const res = await fetch(`${BASE}${path}`, {

@@ -1,0 +1,81 @@
+import { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { api } from '@/lib/api'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import Badge from '@/components/ui/badge'
+
+function formatPrice(n) {
+  const num = Number(n)
+  return Number.isFinite(num) ? num.toFixed(2) : '0.00'
+}
+
+export default function ProductPage() {
+  const { slug } = useParams()
+  const [product, setProduct] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    setErr('')
+    api.get(`/products/${slug}`)
+      .then(({ product }) => { if (active) setProduct(product) })
+      .catch((e) => { if (active) setErr(e.message || 'Failed to load product') })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [slug])
+
+  if (loading) return <div className="container py-10">Loading…</div>
+  if (err) return <div className="container py-10 text-red-600">{err}</div>
+  if (!product) return <div className="container py-10">Not found</div>
+
+  return (
+    <div className="container py-10 grid gap-8 lg:grid-cols-2">
+      <Card>
+        <CardContent className="p-4">
+          {product.images?.[0] ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={product.images[0]}
+              alt={product.title}
+              className="aspect-square w-full rounded-md object-cover bg-muted"
+            />
+          ) : (
+            <div className="aspect-square w-full rounded-md bg-muted" />
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight">{product.title}</h1>
+          {product.tags?.[0] && <Badge>{product.tags[0]}</Badge>}
+        </div>
+
+        <div className="text-xl font-semibold">${formatPrice(product.price)}</div>
+
+        <p className="text-muted-foreground">
+          {product.description || 'No description provided.'}
+        </p>
+
+        <div className="flex items-center gap-3">
+          <Button>Add to cart</Button>
+          <Button variant="outline">Buy now</Button>
+        </div>
+
+        <div className="text-sm text-muted-foreground">Stock: {product.stock ?? 0}</div>
+
+        {product.images?.length > 1 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {product.images.slice(1).map((u) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={u} src={u} alt="" className="h-16 w-16 rounded-md object-cover border" />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

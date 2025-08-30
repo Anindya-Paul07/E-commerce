@@ -1,15 +1,28 @@
+import { useEffect, useState } from "react"
+import { Link } from "react-router-dom"
+import { api } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import Badge from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-
-const demo = [
-  { id: 1, title: "Cotton Tee", price: 19.99, tag: "New" },
-  { id: 2, title: "Denim Jacket", price: 59.99, tag: "Hot" },
-  { id: 3, title: "Running Shoes", price: 89.99, tag: "Sale" },
-  { id: 4, title: "Backpack", price: 39.99, tag: "New" },
-]
+import Badge from "@/components/ui/badge"
 
 export default function Home() {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { items } = await api.get('/products?limit=8&status=active&sort=-createdAt')
+        setItems(items)
+      } catch (e) {
+        setErr(e.message)
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [])
+
   return (
     <div className="container space-y-10 py-10">
       {/* Hero */}
@@ -26,22 +39,31 @@ export default function Home() {
       <section className="space-y-4">
         <div className="flex items-end justify-between">
           <h3 className="text-xl font-semibold">Featured</h3>
-          <Button variant="link" className="px-0">View all</Button>
+          <Button asChild variant="link" className="px-0">
+            <Link to="/">View all</Link>
+          </Button>
         </div>
 
+        {loading && <p className="text-sm text-muted-foreground">Loading products…</p>}
+        {err && <p className="text-sm text-red-600">{err}</p>}
+
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {demo.map(p => (
-            <Card key={p.id} className="group">
+          {items.map(p => (
+            <Card key={p._id} className="group">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="truncate">{p.title}</CardTitle>
-                  <Badge variant="default">{p.tag}</Badge>
+                  <CardTitle className="truncate">
+                    <Link to={`/product/${p.slug}`} className="hover:underline">{p.title}</Link>
+                  </CardTitle>
+                  {p.tags?.[0] && <Badge>{p.tags[0]}</Badge>}
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="aspect-square w-full rounded-md bg-muted/60 group-hover:bg-muted transition-colors" />
+                <Link to={`/product/${p.slug}`}>
+                  <div className="aspect-square w-full rounded-md bg-muted/60 group-hover:bg-muted transition-colors" />
+                </Link>
                 <div className="mt-3 flex items-center justify-between">
-                  <span className="font-semibold">${p.price.toFixed(2)}</span>
+                  <span className="font-semibold">${Number(p.price).toFixed(2)}</span>
                   <Button size="sm">Add to cart</Button>
                 </div>
               </CardContent>

@@ -9,6 +9,7 @@ import { initPassport } from './passport/index.js';
 import { notFound, errorHandler } from './middlewares/error.js';
 
 import authRoutes from './router/auth.route.js';
+import productRoutes from './router/product.route.js';
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use(passport.initialize());
 app.get('/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/products', productRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

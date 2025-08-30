@@ -5,7 +5,9 @@
   "type":"module",
   "scripts": {
   "dev": "nodemon src/server.js",
-  "start": "node src/server.js"
+  "start": "node src/server.js",
+  "seed:Admin": "node src/seedAdmin.mjs"
+
 },
   "keywords": [],
   "author": "",
