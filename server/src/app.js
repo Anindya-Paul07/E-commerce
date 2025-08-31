@@ -10,6 +10,7 @@ import { notFound, errorHandler } from './middlewares/error.js';
 
 import authRoutes from './router/auth.route.js';
 import productRoutes from './router/product.route.js';
+import categoryroutes from './router/category.route.js';
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/categories', categoryroutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -1,0 +1,19 @@
+import { Router } from 'express';
+import passport from 'passport';
+import { rolesRequired } from '../middlewares/rolesRequired.js';
+import { list, tree, getOne, create, update, remove, products } from '../controller/category.controller.js';
+
+const r = Router();
+
+// Public
+r.get('/', list);
+r.get('/tree', tree);
+r.get('/:idOrSlug', getOne);
+r.get('/:idOrSlug/products', products);
+
+// Admin-only
+r.post('/', passport.authenticate('jwt', { session: false }), rolesRequired(['admin']), create);
+r.patch('/:id', passport.authenticate('jwt', { session: false }), rolesRequired(['admin']), update);
+r.delete('/:id', passport.authenticate('jwt', { session: false }), rolesRequired(['admin']), remove);
+
+export default r;

@@ -8,6 +8,7 @@ const productSchema = new mongoose.Schema(
     price: { type: Number, required: true, min: 0 },
     images: [{ type: String }],
     brand: { type: String, default: '' },
+    categories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
     status: { type: String, enum: ['active', 'draft'], default: 'active' },
     stock: { type: Number, default: 0, min: 0 },
     tags: [{ type: String }]

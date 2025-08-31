@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,7 +12,8 @@ const EMPTY = {
   tags: '',
   description: '',
   images: [],
-  _imageUrl: ''
+  _imageUrl: '',
+  categoryIds: [], // NEW: selected category ObjectIds
 }
 
 function toPayload(src) {
@@ -23,6 +24,7 @@ function toPayload(src) {
     price: Number(src.price),
     stock: Number(src.stock || 0),
     images: Array.isArray(src.images) ? src.images : [],
+    categories: Array.isArray(src.categoryIds) ? src.categoryIds : [], // send ObjectIds
   }
   const tagsArr = String(src.tags || '')
     .split(',')
@@ -36,11 +38,31 @@ function toPayload(src) {
 
 export default function AdminProductsPage() {
   const [list, setList] = useState([])
+  const [categories, setCategories] = useState([])
+  const [catLoading, setCatLoading] = useState(true)
+
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
   const [form, setForm] = useState(EMPTY)
   const [editingId, setEditingId] = useState(null)
+
+  const catMap = useMemo(
+    () => new Map(categories.map(c => [String(c._id), c])),
+    [categories]
+  )
+
+  async function fetchCategories() {
+    setCatLoading(true)
+    try {
+      const { items } = await api.get('/categories?limit=200')
+      setCategories(items || [])
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setCatLoading(false)
+    }
+  }
 
   async function fetchList() {
     setLoading(true)
@@ -56,6 +78,7 @@ export default function AdminProductsPage() {
   }
 
   useEffect(() => {
+    fetchCategories()
     fetchList()
   }, [])
 
@@ -74,10 +97,18 @@ export default function AdminProductsPage() {
     setForm(prev => ({ ...prev, images: (prev.images || []).filter(u => u !== url) }))
   }
 
+  function toggleCategory(id) {
+    setForm(prev => {
+      const set = new Set(prev.categoryIds || [])
+      if (set.has(id)) set.delete(id)
+      else set.add(id)
+      return { ...prev, categoryIds: Array.from(set) }
+    })
+  }
+
   async function createProduct(e) {
     e.preventDefault()
-    setSaving(true)
-    setErr('')
+    setSaving(true); setErr('')
     try {
       const payload = toPayload(form)
       if (!payload.title || !Number.isFinite(payload.price)) {
@@ -104,15 +135,15 @@ export default function AdminProductsPage() {
       tags: (item.tags || []).join(', '),
       description: item.description || '',
       images: item.images || [],
-      _imageUrl: ''
+      _imageUrl: '',
+      categoryIds: (item.categories || []).map(String), // array of ObjectIds (strings)
     })
   }
 
   async function saveEdit(e) {
     e.preventDefault()
     if (!editingId) return
-    setSaving(true)
-    setErr('')
+    setSaving(true); setErr('')
     try {
       const payload = toPayload(form)
       if (!payload.title || !Number.isFinite(payload.price)) {
@@ -143,93 +174,41 @@ export default function AdminProductsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Products</h1>
-        <p className="text-sm text-muted-foreground">Create, update, and remove products. Images are URL-based.</p>
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Products</h1>
+          <p className="text-sm text-muted-foreground">Create, categorize, update and remove products.</p>
+        </div>
       </div>
 
+      {/* Create / Edit */}
       <Card>
         <CardHeader>
           <CardTitle>{editingId ? 'Edit product' : 'New product'}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={editingId ? saveEdit : createProduct} className="grid gap-3 sm:grid-cols-2">
-            <input
-              className="h-10 rounded-md border bg-background px-3"
-              placeholder="Title"
-              name="title"
-              value={form.title}
-              onChange={onChange}
-              required
-            />
-            <input
-              className="h-10 rounded-md border bg-background px-3"
-              placeholder="Slug (optional)"
-              name="slug"
-              value={form.slug}
-              onChange={onChange}
-            />
+            <input className="h-10 rounded-md border bg-background px-3" placeholder="Title" name="title" value={form.title} onChange={onChange} required />
+            <input className="h-10 rounded-md border bg-background px-3" placeholder="Slug (optional)" name="slug" value={form.slug} onChange={onChange} />
 
-            <input
-              className="h-10 rounded-md border bg-background px-3"
-              placeholder="Price"
-              name="price"
-              type="number"
-              step="0.01"
-              value={form.price}
-              onChange={onChange}
-              required
-            />
-            <input
-              className="h-10 rounded-md border bg-background px-3"
-              placeholder="Stock"
-              name="stock"
-              type="number"
-              value={form.stock}
-              onChange={onChange}
-            />
+            <input className="h-10 rounded-md border bg-background px-3" placeholder="Price" name="price" type="number" step="0.01" value={form.price} onChange={onChange} required />
+            <input className="h-10 rounded-md border bg-background px-3" placeholder="Stock" name="stock" type="number" value={form.stock} onChange={onChange} />
 
-            <input
-              className="h-10 rounded-md border bg-background px-3"
-              placeholder="Brand"
-              name="brand"
-              value={form.brand}
-              onChange={onChange}
-            />
-            <input
-              className="h-10 rounded-md border bg-background px-3"
-              placeholder="Tags (comma separated)"
-              name="tags"
-              value={form.tags}
-              onChange={onChange}
-            />
+            <input className="h-10 rounded-md border bg-background px-3" placeholder="Brand" name="brand" value={form.brand} onChange={onChange} />
+            <input className="h-10 rounded-md border bg-background px-3" placeholder="Tags (comma separated)" name="tags" value={form.tags} onChange={onChange} />
 
             {/* Images (URLs) */}
             <div className="sm:col-span-2">
               <label className="mb-2 block text-sm font-medium">Images (URL)</label>
               <div className="flex gap-2">
-                <input
-                  className="h-10 flex-1 rounded-md border bg-background px-3"
-                  placeholder="https://example.com/image.jpg"
-                  name="_imageUrl"
-                  value={form._imageUrl}
-                  onChange={onChange}
-                />
+                <input className="h-10 flex-1 rounded-md border bg-background px-3" placeholder="https://example.com/image.jpg" name="_imageUrl" value={form._imageUrl} onChange={onChange} />
                 <Button type="button" onClick={addImageUrl}>Add</Button>
               </div>
-
               <div className="mt-3 grid gap-3 grid-cols-2 sm:grid-cols-4">
                 {(form.images || []).map(url => (
                   <div key={url} className="relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={url} alt="" className="h-28 w-full object-cover rounded-md border" />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      className="absolute right-2 top-2 h-7 px-2"
-                      onClick={() => removeImage(url)}
-                    >
+                    <Button type="button" size="sm" variant="destructive" className="absolute right-2 top-2 h-7 px-2" onClick={() => removeImage(url)}>
                       Remove
                     </Button>
                   </div>
@@ -237,24 +216,40 @@ export default function AdminProductsPage() {
               </div>
             </div>
 
-            <textarea
-              className="min-h-[80px] rounded-md border bg-background px-3 py-2 sm:col-span-2"
-              placeholder="Description"
-              name="description"
-              value={form.description}
-              onChange={onChange}
-            />
+            {/* Categories */}
+            <div className="sm:col-span-2">
+              <label className="mb-2 block text-sm font-medium">Categories</label>
+              {catLoading ? (
+                <p className="text-xs text-muted-foreground">Loading categories…</p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-3 md:grid-cols-4">
+                  {categories.map(c => {
+                    const id = String(c._id)
+                    const checked = form.categoryIds.includes(id)
+                    return (
+                      <label key={id} className="flex items-center gap-2 rounded-md border p-2">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleCategory(id)}
+                        />
+                        <span className="text-sm">{c.name}</span>
+                      </label>
+                    )
+                  })}
+                  {categories.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No categories yet. Create some in <span className="font-medium">Admin &gt; Categories</span>.</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <textarea className="min-h-[80px] rounded-md border bg-background px-3 py-2 sm:col-span-2" placeholder="Description" name="description" value={form.description} onChange={onChange} />
 
             <div className="sm:col-span-2 flex gap-2">
-              <Button disabled={saving}>
-                {saving ? 'Saving…' : editingId ? 'Save changes' : 'Create product'}
-              </Button>
+              <Button disabled={saving}>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Create product'}</Button>
               {editingId && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => { setEditingId(null); setForm(EMPTY) }}
-                >
+                <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm(EMPTY) }}>
                   Cancel
                 </Button>
               )}
@@ -265,6 +260,7 @@ export default function AdminProductsPage() {
         </CardContent>
       </Card>
 
+      {/* List */}
       <Card>
         <CardHeader><CardTitle>All products</CardTitle></CardHeader>
         <CardContent>
@@ -279,6 +275,7 @@ export default function AdminProductsPage() {
                     <th className="py-2 pr-3">Price</th>
                     <th className="py-2 pr-3">Stock</th>
                     <th className="py-2 pr-3">Slug</th>
+                    <th className="py-2 pr-3">Categories</th>
                     <th className="py-2 pr-3">Image</th>
                     <th className="py-2 pr-3">Actions</th>
                   </tr>
@@ -291,9 +288,13 @@ export default function AdminProductsPage() {
                       <td className="py-2 pr-3">{item.stock}</td>
                       <td className="py-2 pr-3">{item.slug}</td>
                       <td className="py-2 pr-3">
+                        {(item.categories || []).length
+                          ? (item.categories || []).map(id => catMap.get(String(id))?.name || '—').join(', ')
+                          : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="py-2 pr-3">
                         {item.images?.[0]
-                          ? /* eslint-disable-next-line @next/next/no-img-element */
-                            (<img src={item.images[0]} alt="" className="h-12 w-12 object-cover rounded-md border" />)
+                          ? (<img src={item.images[0]} alt="" className="h-12 w-12 object-cover rounded-md border" />)
                           : <span className="text-muted-foreground">—</span>}
                       </td>
                       <td className="py-2 pr-3">
@@ -306,9 +307,7 @@ export default function AdminProductsPage() {
                   ))}
                   {list.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-4 text-muted-foreground">
-                        No products yet — create your first one above.
-                      </td>
+                      <td colSpan={7} className="py-4 text-muted-foreground">No products yet — create your first one above.</td>
                     </tr>
                   )}
                 </tbody>
