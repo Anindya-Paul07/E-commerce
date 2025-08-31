@@ -11,6 +11,8 @@ import { notFound, errorHandler } from './middlewares/error.js';
 import authRoutes from './router/auth.route.js';
 import productRoutes from './router/product.route.js';
 import categoryroutes from './router/category.route.js';
+import cartRoutes from './router/cart.route.js';
+import orderRoutes from './router/order.route.js';
 
 const app = express();
 
@@ -30,6 +32,8 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryroutes);
+app.use('/api/cart', cartRoutes);
+app.use('/api/orders', orderRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

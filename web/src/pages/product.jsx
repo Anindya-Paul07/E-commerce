@@ -15,6 +15,8 @@ export default function ProductPage() {
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [msg, setMsg] = useState('')
 
   useEffect(() => {
     let active = true
@@ -27,6 +29,22 @@ export default function ProductPage() {
     return () => { active = false }
   }, [slug])
 
+  async function addToCart() {
+    if (!product?._id) return
+    setAdding(true); setMsg('')
+    try {
+      await api.post('/cart/add', { productId: product._id, qty: 1 })
+      // keep navbar cart badge in sync
+      window.dispatchEvent(new CustomEvent('cart:updated'))
+      setMsg('Added to cart!')
+    } catch (e) {
+      setMsg(e.message || 'Failed to add to cart')
+    } finally {
+      setAdding(false)
+      setTimeout(() => setMsg(''), 2000)
+    }
+  }
+
   if (loading) return <div className="container py-10">Loading…</div>
   if (err) return <div className="container py-10 text-red-600">{err}</div>
   if (!product) return <div className="container py-10">Not found</div>
@@ -36,7 +54,6 @@ export default function ProductPage() {
       <Card>
         <CardContent className="p-4">
           {product.images?.[0] ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={product.images[0]}
               alt={product.title}
@@ -61,16 +78,19 @@ export default function ProductPage() {
         </p>
 
         <div className="flex items-center gap-3">
-          <Button>Add to cart</Button>
+          <Button onClick={addToCart} disabled={adding}>
+            {adding ? 'Adding…' : 'Add to cart'}
+          </Button>
           <Button variant="outline">Buy now</Button>
         </div>
+
+        {!!msg && <div className="text-sm">{msg}</div>}
 
         <div className="text-sm text-muted-foreground">Stock: {product.stock ?? 0}</div>
 
         {product.images?.length > 1 && (
           <div className="mt-3 flex flex-wrap gap-2">
             {product.images.slice(1).map((u) => (
-              // eslint-disable-next-line @next/next/no-img-element
               <img key={u} src={u} alt="" className="h-16 w-16 rounded-md object-cover border" />
             ))}
           </div>

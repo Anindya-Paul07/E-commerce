@@ -6,8 +6,7 @@ const nav = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/admin/products', label: 'Products', icon: Package },
   { to: '/admin/categories', label: 'Categories', icon: Tag },
-  // Future:
-  // { to: '/admin/orders', label: 'Orders', icon: ShoppingCart, disabled: true },
+  { to: '/admin/orders', label: 'Orders', icon: ShoppingCart },
   // { to: '/admin/customers', label: 'Customers', icon: Users, disabled: true },
   // { to: '/admin/settings', label: 'Settings', icon: Settings, disabled: true },
 ]

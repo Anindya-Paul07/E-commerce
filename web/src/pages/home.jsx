@@ -64,6 +64,17 @@ export default function Home() {
     productsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  // Add to cart for cards
+  async function addToCart(productId) {
+    try {
+      await api.post('/cart/add', { productId, qty: 1 })
+      // refresh navbar badge
+      window.dispatchEvent(new CustomEvent('cart:updated'))
+    } catch (e) {
+      alert(e.message || 'Failed to add to cart')
+    }
+  }
+
   return (
     <div className="container space-y-10 py-10">
       {/* Hero */}
@@ -128,7 +139,6 @@ export default function Home() {
       <section ref={productsRef} id="products" className="space-y-4">
         <div className="flex items-end justify-between">
           <h3 className="text-xl font-semibold">Featured</h3>
-          {/* optional "View all" could also scroll; leaving out to keep single-page listing */}
         </div>
 
         {loading && <p className="text-sm text-muted-foreground">Loading products…</p>}
@@ -140,14 +150,14 @@ export default function Home() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="truncate">
-                    {/* Keep your detail route as-is; if you use /products/:slug, change below accordingly */}
                     <Link to={`/product/${p.slug}`} className="hover:underline">{p.title}</Link>
                   </CardTitle>
                   {p.tags?.[0] && <Badge>{p.tags[0]}</Badge>}
                 </div>
               </CardHeader>
               <CardContent>
-                <Link to={`/products/${p.slug}`}>
+                {/* Link image to the SAME route as the title */}
+                <Link to={`/product/${p.slug}`}>
                   {p.images?.[0]
                     ? <img
                         src={p.images[0]}
@@ -159,7 +169,7 @@ export default function Home() {
                 </Link>
                 <div className="mt-3 flex items-center justify-between">
                   <span className="font-semibold">${Number(p.price).toFixed(2)}</span>
-                  <Button size="sm">Add to cart</Button>
+                  <Button size="sm" onClick={() => addToCart(p._id)}>Add to cart</Button>
                 </div>
               </CardContent>
             </Card>
