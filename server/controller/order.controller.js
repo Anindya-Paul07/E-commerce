@@ -1,5 +1,6 @@
 import Order from '../model/order.model.js';
 import Cart from '../model/cart.model.js';
+import { commitForOrder } from './inventory.controller.js';
 
 function pad(n, w=5){ return String(n).padStart(w,'0'); }
 function orderNumber() {
@@ -14,11 +15,13 @@ export async function checkout(req, res, next) {
     const cart = await Cart.findOne({ user: req.user._id });
     if (!cart || cart.items.length === 0) return res.status(400).json({ error: 'Cart is empty' });
 
+    // totals
     const subtotal = cart.items.reduce((s, it) => s + it.price * it.qty, 0);
-    const shipping = 0; // flat for now
-    const tax = 0;      // add tax logic later
+    const shipping = 0;
+    const tax = 0;
     const total = subtotal + shipping + tax;
 
+    // Create order (pending)
     const order = await Order.create({
       number: orderNumber(),
       user: req.user._id,
@@ -31,7 +34,18 @@ export async function checkout(req, res, next) {
       notes
     });
 
-    // clear cart
+    // Commit all reservations
+    try {
+      for (const it of cart.items) {
+        await commitForOrder({ orderId: order._id, productId: it.product, qty: it.qty });
+      }
+    } catch (err) {
+      // If commit fails for any line, abort order (simple strategy)
+      await Order.findByIdAndUpdate(order._id, { status: 'canceled', notes: `Auto-canceled: ${err.message}` });
+      return res.status(409).json({ error: 'Insufficient stock during commit', detail: err.message });
+    }
+
+    // Clear cart
     cart.items = [];
     await cart.save();
 

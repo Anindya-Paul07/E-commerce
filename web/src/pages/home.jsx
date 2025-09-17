@@ -3,7 +3,7 @@ import { Link } from "react-router-dom"
 import { api } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import Badge from "@/components/ui/badge"
+import  Badge  from "@/components/ui/badge"
 
 export default function Home() {
   const [items, setItems] = useState([])
@@ -68,7 +68,6 @@ export default function Home() {
   async function addToCart(productId) {
     try {
       await api.post('/cart/add', { productId, qty: 1 })
-      // refresh navbar badge
       window.dispatchEvent(new CustomEvent('cart:updated'))
     } catch (e) {
       alert(e.message || 'Failed to add to cart')
@@ -84,6 +83,11 @@ export default function Home() {
         <div className="mt-6 flex gap-3">
           {/* Shop now -> smooth scroll to products section on THIS page */}
           <Button type="button" onClick={scrollToProducts}>Shop now</Button>
+
+          {/* Browse brands (NEW) */}
+          <Button asChild variant="outline">
+            <Link to="/brands">Browse brands</Link>
+          </Button>
 
           {/* Explore categories dropdown */}
           <div className="relative" ref={catMenuRef}>
@@ -156,7 +160,6 @@ export default function Home() {
                 </div>
               </CardHeader>
               <CardContent>
-                {/* Link image to the SAME route as the title */}
                 <Link to={`/product/${p.slug}`}>
                   {p.images?.[0]
                     ? <img

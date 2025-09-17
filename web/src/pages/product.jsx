@@ -17,6 +17,9 @@ export default function ProductPage() {
   const [err, setErr] = useState('')
   const [adding, setAdding] = useState(false)
   const [msg, setMsg] = useState('')
+  const [availability, setAvailability] = useState(null)
+  const [availLoading, setAvailLoading] = useState(true)
+  const [availErr, setAvailErr] = useState('')
 
   useEffect(() => {
     let active = true
@@ -26,6 +29,18 @@ export default function ProductPage() {
       .then(({ product }) => { if (active) setProduct(product) })
       .catch((e) => { if (active) setErr(e.message || 'Failed to load product') })
       .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [slug])
+
+  // Load computed availability (on-hand, reserved, available)
+  useEffect(() => {
+    let active = true
+    setAvailLoading(true)
+    setAvailErr('')
+    api.get(`/products/${slug}/stock`)
+      .then((data) => { if (active) setAvailability(data) })
+      .catch((e) => { if (active) setAvailErr(e.message || 'Failed to load availability') })
+      .finally(() => { if (active) setAvailLoading(false) })
     return () => { active = false }
   }, [slug])
 
@@ -86,7 +101,9 @@ export default function ProductPage() {
 
         {!!msg && <div className="text-sm">{msg}</div>}
 
-        <div className="text-sm text-muted-foreground">Stock: {product.stock ?? 0}</div>
+        <div className="text-sm text-muted-foreground">
+          {availLoading ? 'Checking stock…' : availErr ? 'Availability unavailable' : `Available: ${availability?.available ?? 0}`}
+        </div>
 
         {product.images?.length > 1 && (
           <div className="mt-3 flex flex-wrap gap-2">

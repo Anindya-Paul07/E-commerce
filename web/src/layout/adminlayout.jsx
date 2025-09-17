@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Package, Tag, ShoppingCart, Users, Settings } from 'lucide-react'
+import { LayoutDashboard, Package, Tag, ShoppingCart, Users, Settings, WarehouseIcon, Store } from 'lucide-react'
 import AdminGate from '@/components/AdminGate'
 
 const nav = [
@@ -7,6 +7,9 @@ const nav = [
   { to: '/admin/products', label: 'Products', icon: Package },
   { to: '/admin/categories', label: 'Categories', icon: Tag },
   { to: '/admin/orders', label: 'Orders', icon: ShoppingCart },
+  { to: '/admin/inventory', label: 'Inventory', icon: WarehouseIcon},
+  { to: '/admin/warehouses', label: 'Warehouses', icon: WarehouseIcon },
+  { to: '/admin/brands', label: 'Brands', icon: Store }
   // { to: '/admin/customers', label: 'Customers', icon: Users, disabled: true },
   // { to: '/admin/settings', label: 'Settings', icon: Settings, disabled: true },
 ]

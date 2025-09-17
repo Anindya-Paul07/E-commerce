@@ -13,6 +13,10 @@ import productRoutes from './router/product.route.js';
 import categoryroutes from './router/category.route.js';
 import cartRoutes from './router/cart.route.js';
 import orderRoutes from './router/order.route.js';
+import brandRoutes from './router/brand.route.js';
+import inventoryRoutes from './router/inventory.route.js'
+import warehouseRoutes from './router/warehouse.route.js'
+
 
 const app = express();
 
@@ -34,6 +38,9 @@ app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryroutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/brands', brandRoutes);
+app.use('/api/inventory', inventoryRoutes)
+app.use('/api/warehouses', warehouseRoutes)
 
 app.use(notFound);
 app.use(errorHandler);

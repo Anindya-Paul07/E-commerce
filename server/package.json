@@ -4,9 +4,9 @@
   "main": "index.js",
   "type":"module",
   "scripts": {
-  "dev": "nodemon src/server.js",
+  "dev": "nodemon server.js",
   "start": "node src/server.js",
-  "seed:Admin": "node src/seedAdmin.mjs"
+  "seed:Admin": "node seedAdmin.mjs"
 
 },
   "keywords": [],

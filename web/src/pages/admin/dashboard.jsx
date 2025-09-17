@@ -10,13 +10,14 @@ export default function Dashboard() {
         <div className="flex gap-2">
           <Button asChild><Link to="/admin/products">Manage Products</Link></Button>
           <Button asChild variant="outline"><Link to="/admin/categories">Manage Categories</Link></Button>
+          <Button asChild variant="outline"><Link to="/admin/inventory">Manage Inventory</Link></Button>
         </div>
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader><CardTitle>Orders</CardTitle></CardHeader>
-          <CardContent className="text-3xl font-semibold">0</CardContent>
+          <CardContent className="text-3xl font-semibold"></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Products</CardTitle></CardHeader>

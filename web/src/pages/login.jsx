@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { api } from '@/lib/api'
+import { api, setToken } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -13,10 +13,10 @@ export default function Login() {
 
   async function onSubmit(e) {
     e.preventDefault()
-    setErr('')
-    setLoading(true)
+    setErr(''); setLoading(true)
     try {
-      await api.post('/auth/login', { email, password })
+      const data = await api.post('/auth/login', { email, password })
+      if (data?.token) setToken(data.token)            
       navigate('/')
     } catch (e) {
       setErr(e.message)
