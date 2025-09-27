@@ -1,7 +1,11 @@
-import { useSession } from '@/context/SessionContext'
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { fetchSession } from '@/store/slices/sessionSlice';
 
 export function useMe() {
-  const { user, userLoading, refreshUser } = useSession()
-  const isAdmin = !!user?.roles?.includes('admin')
-  return { me: user, isAdmin, loading: userLoading, refresh: refreshUser }
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.session.user);
+  const status = useAppSelector((state) => state.session.status);
+  const refresh = () => dispatch(fetchSession());
+  const isAdmin = !!user?.roles?.includes('admin');
+  return { me: user, isAdmin, loading: status === 'loading', refresh };
 }

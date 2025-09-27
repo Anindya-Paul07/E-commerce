@@ -3,8 +3,9 @@ import { data, Link, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
-import { useSession } from '@/context/SessionContext'
 import { notify } from '@/lib/notify'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { logout as logoutThunk } from '@/store/slices/sessionSlice'
 
 const formatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -14,7 +15,10 @@ const formatter = new Intl.NumberFormat('en-US', {
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { user, userLoading, logout } = useSession()
+  const dispatch = useAppDispatch()
+  const user = useAppSelector((state) => state.session.user)
+  const sessionStatus = useAppSelector((state) => state.session.status)
+  const userLoading = sessionStatus === 'loading'
   const [stats, setStats] = useState({ orders: 0, products: 0, users: 0, revenue: 0 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -58,7 +62,7 @@ export default function Dashboard() {
   ]), [stats])
 
   async function handleLogout() {
-    await logout()
+    await dispatch(logoutThunk())
     notify.info('Signed out')
     navigate('/', { replace: true })
   }

@@ -1,10 +1,15 @@
 import { NavLink, Outlet } from 'react-router-dom'
+<<<<<<< HEAD
 import { LayoutDashboard, Package, Tag, ShoppingCart, Users, Settings, WarehouseIcon, Store } from 'lucide-react'
+=======
+import { LayoutDashboard, Package, Tag, ShoppingCart, Building2, Boxes, BadgeCheck } from 'lucide-react'
+>>>>>>> 0eec417 (added moderinazation.)
 import AdminGate from '@/components/AdminGate'
 
 const nav = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/admin/products', label: 'Products', icon: Package },
+  { to: '/admin/brands', label: 'Brands', icon: BadgeCheck },
   { to: '/admin/categories', label: 'Categories', icon: Tag },
   { to: '/admin/orders', label: 'Orders', icon: ShoppingCart },
   { to: '/admin/inventory', label: 'Inventory', icon: WarehouseIcon},

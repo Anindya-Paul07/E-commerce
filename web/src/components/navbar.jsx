@@ -1,21 +1,28 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { ShoppingBag, ShoppingCart } from 'lucide-react'
-import { useSession } from '@/context/SessionContext'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { logout as logoutThunk } from '@/store/slices/sessionSlice'
+import { clearCart } from '@/store/slices/cartSlice'
 import { notify } from '@/lib/notify'
 import SearchBar from '@/components/search-bar'
 
 export default function Navbar() {
   const navigate = useNavigate()
-  const { user, cartCount, userLoading, logout } = useSession()
+  const dispatch = useAppDispatch()
+  const user = useAppSelector((state) => state.session.user)
+  const sessionStatus = useAppSelector((state) => state.session.status)
+  const cartCount = useAppSelector((state) => state.cart.items.reduce((sum, item) => sum + (item.qty || 0), 0))
 
   async function handleLogout() {
-    await logout()
+    await dispatch(logoutThunk())
+    dispatch(clearCart())
     notify.info('Signed out')
     navigate('/')
   }
 
   const greeting = user?.name || user?.email
+  const userLoading = sessionStatus === 'loading'
 
   return (
     <nav className="border-b bg-background/80 backdrop-blur">

@@ -4,8 +4,9 @@ import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
-import { useSession } from '@/context/SessionContext'
 import { notify } from '@/lib/notify'
+import { useAppDispatch } from '@/store/hooks'
+import { addToCart as addToCartThunk } from '@/store/slices/cartSlice'
 
 function formatPrice(n) {
   const num = Number(n)
@@ -18,11 +19,15 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
   const [adding, setAdding] = useState(false)
+<<<<<<< HEAD
   const [msg, setMsg] = useState('')
   const [availability, setAvailability] = useState(null)
   const [availLoading, setAvailLoading] = useState(true)
   const [availErr, setAvailErr] = useState('')
   const { refreshCart } = useSession()
+=======
+  const dispatch = useAppDispatch()
+>>>>>>> 0eec417 (added moderinazation.)
 
   useEffect(() => {
     let active = true
@@ -51,10 +56,7 @@ export default function ProductPage() {
     if (!product?._id) return
     setAdding(true)
     try {
-      await api.post('/cart/add', { productId: product._id, qty: 1 })
-      // keep navbar cart badge in sync
-      window.dispatchEvent(new CustomEvent('cart:updated'))
-      refreshCart()
+      await dispatch(addToCartThunk({ productId: product._id, qty: 1 }))
       notify.success('Added to cart')
     } catch (e) {
       notify.error(e.message || 'Failed to add to cart')

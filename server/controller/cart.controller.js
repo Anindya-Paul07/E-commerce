@@ -1,6 +1,10 @@
 import Cart from '../model/cart.model.js';
 import Product from '../model/product.model.js';
+<<<<<<< HEAD:server/controller/cart.controller.js
 import { reserveForCart, releaseForCart } from './inventory.controller.js';
+=======
+import { reserveForCart, releaseForCart, ensureDefaultVariantForProduct } from './inventory.controller.js';
+>>>>>>> 0eec417 (added moderinazation.):server/src/controller/cart.controller.js
 
 async function getOrCreateCart(userId) {
   let cart = await Cart.findOne({ user: userId });
@@ -25,12 +29,24 @@ export async function addItem(req, res, next) {
 
     const cart = await getOrCreateCart(req.user._id);
     const idx = cart.items.findIndex(it => String(it.product) === String(product._id));
+<<<<<<< HEAD:server/controller/cart.controller.js
     let addQty = Number(qty || 1);
 
     if (idx >= 0) {
       // reserve only the delta being added
       await reserveForCart({ userId: req.user._id, productId: product._id, qty: addQty, cartId: cart._id });
       cart.items[idx].qty += addQty;
+=======
+    const delta = Number(qty || 1);
+
+    if (delta <= 0) return res.status(400).json({ error: 'qty must be > 0' });
+
+    const variant = await ensureDefaultVariantForProduct(product._id);
+    await reserveForCart({ userId: req.user._id, productId: product._id, qty: delta, cartId: cart._id });
+
+    if (idx >= 0) {
+      cart.items[idx].qty += delta;
+>>>>>>> 0eec417 (added moderinazation.):server/src/controller/cart.controller.js
     } else {
       await reserveForCart({ userId: req.user._id, productId: product._id, qty: addQty, cartId: cart._id });
       cart.items.push({
@@ -40,8 +56,13 @@ export async function addItem(req, res, next) {
         title: product.title,
         price: product.price,
         image: product.images?.[0] || '',
+<<<<<<< HEAD:server/controller/cart.controller.js
         qty: addQty,
         qty: Number(qty || 1),
+=======
+        qty: delta,
+        variant: variant?._id,
+>>>>>>> 0eec417 (added moderinazation.):server/src/controller/cart.controller.js
         commissionRate: product.commission?.rate,
         metadata: {
           fulfillmentMode: product.fulfillmentMode,
@@ -82,12 +103,25 @@ export async function removeItem(req, res, next) {
   try {
     const { productId } = req.params;
     const cart = await getOrCreateCart(req.user._id);
+<<<<<<< HEAD:server/controller/cart.controller.js
     const it = cart.items.find(i => String(i.product) === String(productId));
     if (it) {
       await releaseForCart({ userId: req.user._id, productId, qty: it.qty, cartId: cart._id });
       cart.items = cart.items.filter(i => String(i.product) !== String(productId));
       await cart.save();
     }
+=======
+    const remaining = [];
+    for (const item of cart.items) {
+      if (String(item.product) === String(productId)) {
+        await releaseForCart({ userId: req.user._id, productId, qty: item.qty, cartId: cart._id });
+      } else {
+        remaining.push(item);
+      }
+    }
+    cart.items = remaining;
+    await cart.save();
+>>>>>>> 0eec417 (added moderinazation.):server/src/controller/cart.controller.js
     res.json({ cart, subtotal: cart.subtotal() });
   } catch (e) { next(e); }
 }
@@ -95,8 +129,12 @@ export async function removeItem(req, res, next) {
 export async function clearCart(req, res, next) {
   try {
     const cart = await getOrCreateCart(req.user._id);
+<<<<<<< HEAD:server/controller/cart.controller.js
     // release everything
     const releases = cart.items.map(it =>
+=======
+    const releases = cart.items.map((it) =>
+>>>>>>> 0eec417 (added moderinazation.):server/src/controller/cart.controller.js
       releaseForCart({ userId: req.user._id, productId: it.product, qty: it.qty, cartId: cart._id })
     );
     await Promise.allSettled(releases);

@@ -1,35 +1,48 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+<<<<<<< HEAD
 import { api, setToken } from '@/lib/api'
+=======
+>>>>>>> 0eec417 (added moderinazation.)
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useSession } from '@/context/SessionContext'
 import { notify } from '@/lib/notify'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { login as loginThunk } from '@/store/slices/sessionSlice'
+import { fetchCart } from '@/store/slices/cartSlice'
 
 export default function Login() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
-  const [loading, setLoading] = useState(false)
-  const { setUser, refreshCart } = useSession()
+  const dispatch = useAppDispatch()
+  const status = useAppSelector((state) => state.session.status)
+  const loading = status === 'loading'
 
   async function onSubmit(e) {
     e.preventDefault()
+<<<<<<< HEAD
     setErr(''); setLoading(true)
+=======
+    setErr('')
+>>>>>>> 0eec417 (added moderinazation.)
     try {
-      const { user } = await api.post('/auth/login', { email, password })
-      setUser(user || null)
-      refreshCart()
-      notify.success('Welcome back!')
-      const destination = user?.roles?.includes('admin') ? '/admin' : '/'
-      navigate(destination, { replace: true })
-    } catch (e) {
-      const message = e.message || 'Unable to sign in'
+      const result = await dispatch(loginThunk({ email, password }))
+      if (loginThunk.fulfilled.match(result)) {
+        notify.success('Welcome back!')
+        dispatch(fetchCart())
+        const destination = result.payload?.roles?.includes('admin') ? '/admin' : '/'
+        navigate(destination, { replace: true })
+      } else {
+        const message = result.payload || result.error.message || 'Unable to sign in'
+        setErr(message)
+        notify.error(message)
+      }
+    } catch (error) {
+      const message = error.message || 'Unable to sign in'
       setErr(message)
       notify.error(message)
-    } finally {
-      setLoading(false)
     }
   }
 

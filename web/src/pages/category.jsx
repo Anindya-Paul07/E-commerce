@@ -4,8 +4,9 @@ import { api } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Badge from '@/components/ui/badge'
-import { useSession } from '@/context/SessionContext'
 import { notify } from '@/lib/notify'
+import { useAppDispatch } from '@/store/hooks'
+import { addToCart as addToCartThunk } from '@/store/slices/cartSlice'
 
 export default function CategoryPage() {
   const { slug } = useParams()
@@ -13,7 +14,7 @@ export default function CategoryPage() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
-  const { refreshCart } = useSession()
+  const dispatch = useAppDispatch()
 
   useEffect(() => {
     let active = true
@@ -51,9 +52,7 @@ export default function CategoryPage() {
 
   async function addToCart(productId) {
     try {
-      await api.post('/cart/add', { productId, qty: 1 })
-      refreshCart()
-      window.dispatchEvent(new CustomEvent('cart:updated'))
+      await dispatch(addToCartThunk({ productId, qty: 1 }))
       notify.success('Added to cart')
     } catch (e) {
       notify.error(e.message || 'Failed to add to cart')
