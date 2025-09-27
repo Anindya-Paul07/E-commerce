@@ -35,10 +35,18 @@ export async function addItem(req, res, next) {
       await reserveForCart({ userId: req.user._id, productId: product._id, qty: addQty, cartId: cart._id });
       cart.items.push({
         product: product._id,
+        seller: product.seller,
+        shop: product.shop,
         title: product.title,
         price: product.price,
         image: product.images?.[0] || '',
         qty: addQty,
+        qty: Number(qty || 1),
+        commissionRate: product.commission?.rate,
+        metadata: {
+          fulfillmentMode: product.fulfillmentMode,
+          visibility: product.visibility,
+        },
       });
     }
     await cart.save();

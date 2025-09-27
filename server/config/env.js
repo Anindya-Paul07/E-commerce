@@ -1,12 +1,17 @@
-import dotenv from "dotenv";
+import dotenv from 'dotenv';
+import { bool, cleanEnv, num, str } from 'envalid';
+
 dotenv.config();
 
-export const ENV = {
-  NODE_ENV: process.env.NODE_ENV || "development",
-  PORT: process.env.PORT || 4000,
-  MONGO_URI: process.env.MONGO_URI || "mongodb+srv://anindya209:d123@cluster0.yylrtxe.mongodb.net/ecom?retryWrites=true&w=majority&appName=Cluster0",
-  JWT_SECRET: process.env.JWT_SECRET || "dev_secret_change_me",
-  CLIENT_ORIGIN: process.env.CLIENT_ORIGIN || "http://localhost:3000",
-  COOKIE_NAME: process.env.COOKIE_NAME || "ecom_jwt",
-  COOKIE_SECURE: process.env.COOKIE_SECURE === "true",
-};
+const env = cleanEnv(process.env, {
+  NODE_ENV: str({ default: 'development', choices: ['development', 'test', 'production'] }),
+  PORT: num({ default: 4000 }),
+  MONGO_URI: str({ devDefault: 'mongodb://127.0.0.1:27017/ecom' }),
+  JWT_SECRET: str({ devDefault: 'dev_secret_change_me' }),
+  CLIENT_ORIGIN: str({ devDefault: 'http://localhost:5173' }),
+  COOKIE_NAME: str({ default: 'ecom_jwt' }),
+  COOKIE_SECURE: bool({ default: false }),
+  LOG_LEVEL: str({ default: 'info' }),
+});
+
+export const ENV = Object.freeze(env);

@@ -1,77 +1,49 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
-import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { ShoppingBag, ShoppingCart } from 'lucide-react'
+import { useSession } from '@/context/SessionContext'
+import { notify } from '@/lib/notify'
+import SearchBar from '@/components/search-bar'
 
 export default function Navbar() {
-  const [me, setMe] = useState(null)
-  const [count, setCount] = useState(0)
   const navigate = useNavigate()
-
-  // auth
-  useEffect(() => {
-    let active = true
-    api.get('/auth/me').then(d => { if (active) setMe(d.user) }).catch(()=>{})
-    return () => { active = false }
-  }, [])
-
-  // cart count helpers
-  async function refreshCartCount() {
-    try {
-      const { cart } = await api.get('/cart')
-      const c = (cart?.items || []).reduce((sum, it) => sum + (it.qty || 0), 0)
-      setCount(c)
-    } catch {
-      setCount(0) // not logged in or no cart yet
-    }
-  }
-
-  // load on mount, when tab re-appears, and on custom 'cart:updated' events
-  useEffect(() => {
-    refreshCartCount()
-
-    const onVis = () => { if (document.visibilityState === 'visible') refreshCartCount() }
-    const onCart = () => refreshCartCount()
-
-    document.addEventListener('visibilitychange', onVis)
-    window.addEventListener('cart:updated', onCart)
-
-    return () => {
-      document.removeEventListener('visibilitychange', onVis)
-      window.removeEventListener('cart:updated', onCart)
-    }
-  }, [])
+  const { user, cartCount, userLoading, logout } = useSession()
 
   async function handleLogout() {
-    await api.post('/auth/logout', {})
-    setMe(null)
-    setCount(0)
+    await logout()
+    notify.info('Signed out')
     navigate('/')
   }
 
+  const greeting = user?.name || user?.email
+
   return (
-    <nav className="border-b">
-      <div className="container flex h-14 items-center">
-        <div className="mr-6 flex items-center gap-2">
+    <nav className="border-b bg-background/80 backdrop-blur">
+      <div className="container flex h-16 items-center gap-4">
+        <div className="flex items-center gap-2">
           <ShoppingBag className="h-5 w-5" />
           <Link to="/" className="font-semibold">E-Commerce</Link>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          {/* Cart button (always visible) */}
+        <div className="flex-1">
+          <SearchBar />
+        </div>
+
+        <div className="flex items-center gap-2">
           <Button asChild variant="outline" className="relative">
             <Link to="/cart" aria-label="Cart">
               <ShoppingCart className="h-5 w-5" />
-              {count > 0 && (
+              {cartCount > 0 && (
                 <span className="absolute -right-2 -top-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full border bg-primary px-1 text-xs font-medium text-primary-foreground">
-                  {count}
+                  {cartCount}
                 </span>
               )}
             </Link>
           </Button>
 
-          {!me ? (
+          {userLoading ? (
+            <span className="text-sm text-muted-foreground">Loading…</span>
+          ) : !user ? (
             <>
               <Button asChild variant="ghost">
                 <Link to="/login">Login</Link>
@@ -82,7 +54,7 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <span className="text-sm text-muted-foreground">Hi, {me.name || me.email}</span>
+              <span className="text-sm text-muted-foreground">Hi, {greeting}</span>
               <Button variant="outline" onClick={handleLogout}>Logout</Button>
             </>
           )}

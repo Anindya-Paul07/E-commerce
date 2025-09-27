@@ -1,6 +1,8 @@
 import Order from '../model/order.model.js';
 import Cart from '../model/cart.model.js';
 import { commitForOrder } from './inventory.controller.js';
+import { queueFulfillmentForOrder } from '../lib/fulfillment.js';
+import { logger } from '../lib/logger.js';
 
 function pad(n, w=5){ return String(n).padStart(w,'0'); }
 function orderNumber() {
@@ -21,17 +23,50 @@ export async function checkout(req, res, next) {
     const tax = 0;
     const total = subtotal + shipping + tax;
 
-    // Create order (pending)
+    const now = new Date();
+    const items = cart.items.map((i) => {
+      const commissionRate = typeof i.commissionRate === 'number' ? i.commissionRate : 0;
+      const commissionAmount = Number((commissionRate * i.price * i.qty).toFixed(2));
+      return {
+        ...i.toObject(),
+        commissionRate,
+        commissionAmount,
+        fulfillmentStatus: 'pending',
+        fulfillmentEvents: [
+          {
+            status: 'pending',
+            at: now,
+            notes: 'Order created',
+          },
+        ],
+      };
+    });
+
+    const commissionTotal = items.reduce((sum, item) => sum + (item.commissionAmount || 0), 0);
+
     const order = await Order.create({
       number: orderNumber(),
       user: req.user._id,
-      items: cart.items.map(i => ({ ...i.toObject() })),
+      items,
       subtotal, shipping, tax, total,
       currency: cart.currency || 'USD',
       status: 'pending',
       paymentMethod,
       shippingAddress,
-      notes
+      notes,
+      fulfillmentSummary: {
+        status: 'pending',
+        lastUpdatedAt: now,
+      },
+      settlement: {
+        status: 'pending',
+        commissionTotal,
+        netPayoutTotal: total - commissionTotal - shipping - tax,
+      },
+    });
+
+    queueFulfillmentForOrder(order).catch((err) => {
+      logger.error({ err, orderId: order._id }, 'Failed to queue fulfillment tasks');
     });
 
     // Commit all reservations

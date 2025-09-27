@@ -1,5 +1,6 @@
 import Category from '../model/category.model.js';
 import Product from '../model/product.model.js'; // for counts & product lists
+import { queueCategoryIndex, removeCategoryFromIndex } from '../search/indexer.js';
 
 function slugify(s) {
   return s.toString().toLowerCase().trim()
@@ -80,6 +81,7 @@ export async function create(req, res, next) {
     }
 
     const category = await Category.create({ name, slug: finalSlug, description, image, parent: parentId, isActive, sortOrder });
+    queueCategoryIndex(category);
     res.status(201).json({ category });
   } catch (e) { next(e); }
 }
@@ -106,6 +108,7 @@ export async function update(req, res, next) {
 
     const category = await Category.findByIdAndUpdate(id, updates, { new: true });
     if (!category) return res.status(404).json({ error: 'Category not found' });
+    queueCategoryIndex(category);
     res.json({ category });
   } catch (e) { next(e); }
 }
@@ -122,6 +125,7 @@ export async function remove(req, res, next) {
 
     const category = await Category.findByIdAndDelete(id);
     if (!category) return res.status(404).json({ error: 'Category not found' });
+    removeCategoryFromIndex(id);
     res.json({ ok: true });
   } catch (e) { next(e); }
 }

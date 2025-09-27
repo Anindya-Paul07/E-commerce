@@ -4,6 +4,8 @@ import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
+import { useSession } from '@/context/SessionContext'
+import { notify } from '@/lib/notify'
 
 function formatPrice(n) {
   const num = Number(n)
@@ -20,6 +22,7 @@ export default function ProductPage() {
   const [availability, setAvailability] = useState(null)
   const [availLoading, setAvailLoading] = useState(true)
   const [availErr, setAvailErr] = useState('')
+  const { refreshCart } = useSession()
 
   useEffect(() => {
     let active = true
@@ -46,17 +49,17 @@ export default function ProductPage() {
 
   async function addToCart() {
     if (!product?._id) return
-    setAdding(true); setMsg('')
+    setAdding(true)
     try {
       await api.post('/cart/add', { productId: product._id, qty: 1 })
       // keep navbar cart badge in sync
       window.dispatchEvent(new CustomEvent('cart:updated'))
-      setMsg('Added to cart!')
+      refreshCart()
+      notify.success('Added to cart')
     } catch (e) {
-      setMsg(e.message || 'Failed to add to cart')
+      notify.error(e.message || 'Failed to add to cart')
     } finally {
       setAdding(false)
-      setTimeout(() => setMsg(''), 2000)
     }
   }
 

@@ -13,9 +13,14 @@ import Dashboard from '@/pages/admin/dashboard'
 import AdminProducts from '@/pages/admin/product'
 import AdminCategory from '@/pages/admin/category'
 import AdminOrdersPage from '@/pages/admin/order'
+<<<<<<< HEAD
 import AdminInventory from '@/pages/admin/inventory'
 import AdminBrandsPage from '@/pages/admin/brand'
 import AdminWarehousesPage from '@/pages/admin/warehouses'
+=======
+import AdminWarehouses from '@/pages/admin/warehouse'
+import AdminInventory from '@/pages/admin/inventory'
+>>>>>>> dd0723c (added rich domain marketplace model)
 
 export default function App() {
   return (

@@ -3,6 +3,7 @@ import Category from "../model/category.model.js";
 import { ensureDefaultVariantForProduct, receiveStock } from "./inventory.controller.js";
 import Variant from "../model/variant.model.js";
 import InventoryItem from "../model/inventoryItem.model.js";
+import { queueProductIndex, removeProductFromIndex } from "../search/indexer.js";
 
 function slugify(s) {
   return s
@@ -79,6 +80,19 @@ export async function create(req, res, next) {
       stock = 0,
       tags = [],
       slug,
+      compareAtPrice,
+      seller,
+      shop,
+      visibility,
+      fulfillmentMode,
+      dimensions,
+      compliance,
+      logistics,
+      commission,
+      seo,
+      boost,
+      attributes,
+      metadata,
     } = req.body || {};
     if (!title || price == null)
       return res.status(400).json({ error: "title and price are required" });
@@ -92,11 +106,24 @@ export async function create(req, res, next) {
       slug: finalSlug,
       description,
       price,
+      compareAtPrice,
       images,
       brand,
       status,
       stock,   // keep for now; consider deprecating later
       tags,
+      seller,
+      shop,
+      visibility,
+      fulfillmentMode,
+      dimensions,
+      compliance,
+      logistics,
+      commission,
+      seo,
+      boost,
+      attributes,
+      metadata,
     });
 
     // Ensure default variant and seed initial inventory if stock > 0
@@ -105,6 +132,7 @@ export async function create(req, res, next) {
       await receiveStock({ productId: product._id, qty: Number(stock), reason: 'product_create' });
     }
 
+    queueProductIndex(product);
     res.status(201).json({ product });
   } catch (e) { next(e); }
 }
@@ -123,6 +151,7 @@ export async function update(req, res, next) {
     }
     const product = await Product.findByIdAndUpdate(id, updates, { new: true });
     if (!product) return res.status(404).json({ error: "Product not found" });
+    queueProductIndex(product);
     res.json({ product });
   } catch (e) {
     next(e);
@@ -171,6 +200,7 @@ export async function remove(req, res, next) {
     const { id } = req.params;
     const product = await Product.findByIdAndDelete(id);
     if (!product) return res.status(404).json({ error: "Product not found" });
+    removeProductFromIndex(id);
     res.json({ ok: true });
   } catch (e) {
     next(e);

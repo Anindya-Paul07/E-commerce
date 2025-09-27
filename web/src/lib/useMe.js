@@ -1,19 +1,7 @@
-import { useEffect, useState } from 'react'
-import { api } from '@/lib/api'
+import { useSession } from '@/context/SessionContext'
 
 export function useMe() {
-  const [me, setMe] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let mounted = true
-    api.get('/auth/me')
-      .then(d => { if (mounted) setMe(d.user || null) })
-      .catch(() => {})
-      .finally(() => { if (mounted) setLoading(false) })
-    return () => { mounted = false }
-  }, [])
-
-  const isAdmin = !!me?.roles?.includes('admin')
-  return { me, isAdmin, loading }
+  const { user, userLoading, refreshUser } = useSession()
+  const isAdmin = !!user?.roles?.includes('admin')
+  return { me: user, isAdmin, loading: userLoading, refresh: refreshUser }
 }

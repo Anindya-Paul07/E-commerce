@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom'
 import { api, setToken } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useSession } from '@/context/SessionContext'
+import { notify } from '@/lib/notify'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -10,16 +12,22 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
+  const { setUser, refreshCart } = useSession()
 
   async function onSubmit(e) {
     e.preventDefault()
     setErr(''); setLoading(true)
     try {
-      const data = await api.post('/auth/login', { email, password })
-      if (data?.token) setToken(data.token)            
-      navigate('/')
+      const { user } = await api.post('/auth/login', { email, password })
+      setUser(user || null)
+      refreshCart()
+      notify.success('Welcome back!')
+      const destination = user?.roles?.includes('admin') ? '/admin' : '/'
+      navigate(destination, { replace: true })
     } catch (e) {
-      setErr(e.message)
+      const message = e.message || 'Unable to sign in'
+      setErr(message)
+      notify.error(message)
     } finally {
       setLoading(false)
     }
