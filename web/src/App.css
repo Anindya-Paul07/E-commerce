@@ -1,4 +1,13 @@
 * { box-sizing: border-box; }
-body { margin: 0; font-family: system-ui, Arial, sans-serif; }
-a { text-decoration: none; }
+body {
+  margin: 0;
+  font-family: inherit;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  -webkit-font-smoothing: antialiased;
+}
+a {
+  text-decoration: none;
+  color: inherit;
+}
 button { cursor: pointer; }

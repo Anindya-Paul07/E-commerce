@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useSession } from '@/context/SessionContext'
+import { useConfirm } from '@/context/ConfirmContext'
+import { notify } from '@/lib/notify'
 
 export default function CartPage() {
   const [cart, setCart] = useState(null)
@@ -10,6 +13,8 @@ export default function CartPage() {
   const [err, setErr] = useState('')
   const [placing, setPlacing] = useState(false)
   const [placed, setPlaced] = useState(null)
+  const { setCart: setSharedCart, refreshCart } = useSession()
+  const confirm = useConfirm()
 
   const [addr, setAddr] = useState({
     fullName: '', phone: '', line1: '', line2: '', city: '', state: '', postalCode: '', country: 'US'
@@ -20,27 +25,71 @@ export default function CartPage() {
     try {
       const { cart, subtotal } = await api.get('/cart')
       setCart(cart); setSubtotal(subtotal)
-    } catch (e) { setErr(e.message || 'Failed to load cart') }
+      setSharedCart(cart)
+    } catch (e) {
+      const message = e.message || 'Failed to load cart'
+      setErr(message)
+      notify.error(message)
+    }
     finally { setLoading(false) }
   }
   useEffect(() => { load() }, [])
+
+  if (loading) {
+    return (
+      <div className="container py-10 space-y-6">
+        <div className="flex items-end justify-between">
+          <div className="skeleton h-8 w-48 rounded" />
+          <div className="skeleton h-9 w-28 rounded-full" />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="rounded-xl border bg-card/80 p-6 shadow-sm lg:col-span-2 space-y-4">
+            {Array.from({ length: 3 }).map((_, idx) => (
+              <div key={idx} className="flex items-center gap-4">
+                <div className="skeleton h-16 w-16 rounded-md" />
+                <div className="flex-1 space-y-2">
+                  <div className="skeleton h-4 w-2/3 rounded" />
+                  <div className="skeleton h-3 w-1/3 rounded" />
+                </div>
+                <div className="skeleton h-9 w-24 rounded" />
+                <div className="skeleton h-9 w-20 rounded" />
+              </div>
+            ))}
+          </div>
+          <div className="rounded-xl border bg-card/80 p-6 shadow-sm space-y-4">
+            <div className="skeleton h-4 w-24 rounded" />
+            <div className="skeleton h-4 w-16 rounded" />
+            <div className="skeleton h-4 w-32 rounded" />
+            <div className="skeleton h-4 w-28 rounded" />
+            <div className="skeleton h-10 w-full rounded" />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   async function updateQty(productId, qty) {
     try {
       const { cart, subtotal } = await api.patch(`/cart/item/${productId}`, { qty })
       setCart(cart); setSubtotal(subtotal)
-    } catch (e) { alert(e.message) }
+      setSharedCart(cart)
+    } catch (e) { notify.error(e.message || 'Failed to update item') }
   }
   async function removeItem(productId) {
     try {
       const { cart, subtotal } = await api.delete(`/cart/item/${productId}`)
       setCart(cart); setSubtotal(subtotal)
-    } catch (e) { alert(e.message) }
+      setSharedCart(cart)
+      notify.info('Item removed')
+    } catch (e) { notify.error(e.message || 'Failed to remove item') }
   }
   async function clear() {
-    if (!confirm('Clear cart?')) return
+    const ok = await confirm('Clear cart?', { description: 'This action will remove all items from your bag.' })
+    if (!ok) return
     const { cart, subtotal } = await api.delete('/cart')
     setCart(cart); setSubtotal(subtotal)
+    setSharedCart(cart)
+    notify.info('Cart cleared')
   }
   async function placeOrder(e) {
     e.preventDefault()
@@ -52,7 +101,13 @@ export default function CartPage() {
       })
       setPlaced(order)
       await load()
-    } catch (e) { setErr(e.message || 'Checkout failed') }
+      refreshCart()
+      notify.success('Order placed')
+    } catch (e) {
+      const message = e.message || 'Checkout failed'
+      setErr(message)
+      notify.error(message)
+    }
     finally { setPlacing(false) }
   }
 
@@ -63,7 +118,6 @@ export default function CartPage() {
         {cart?.items?.length ? <Button variant="outline" onClick={clear}>Clear cart</Button> : null}
       </div>
 
-      {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
       {err && <p className="text-sm text-red-600">{err}</p>}
 
       <div className="grid gap-6 lg:grid-cols-3">

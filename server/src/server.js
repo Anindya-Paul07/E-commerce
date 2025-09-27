@@ -1,10 +1,39 @@
-import { ENV } from "./config/env.js";
-import { connectDB } from "./config/db.js";
-import app from "./app.js";
+import { ENV } from './config/env.js';
+import { connectDB } from './config/db.js';
+import app from './app.js';
+import { logger } from './lib/logger.js';
 
-(async () => {
-  await connectDB();
-  app.listen(ENV.PORT, () => {
-    console.log(`🚀 API running on http://localhost:${ENV.PORT}`);
-  });
-})();
+async function bootstrap() {
+  try {
+    await connectDB();
+    const server = app.listen(ENV.PORT, () => {
+      logger.info({ port: ENV.PORT }, 'API listening');
+    });
+
+    const shutdown = async (error) => {
+      if (error) logger.error(error, 'Fatal error, shutting down');
+      server.close(() => {
+        logger.flush?.();
+        process.exit(error ? 1 : 0);
+      });
+    };
+
+    process.on('unhandledRejection', (reason) => {
+      logger.error({ reason }, 'Unhandled rejection');
+      shutdown(reason instanceof Error ? reason : undefined);
+    });
+
+    process.on('uncaughtException', (error) => {
+      logger.error(error, 'Uncaught exception');
+      shutdown(error);
+    });
+
+    process.on('SIGTERM', () => shutdown());
+    process.on('SIGINT', () => shutdown());
+  } catch (error) {
+    logger.error(error, 'Failed to start server');
+    process.exit(1);
+  }
+}
+
+bootstrap();

@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Package, Tag, ShoppingCart, Users, Settings } from 'lucide-react'
+import { LayoutDashboard, Package, Tag, ShoppingCart, Building2, Boxes } from 'lucide-react'
 import AdminGate from '@/components/AdminGate'
 
 const nav = [
@@ -7,6 +7,8 @@ const nav = [
   { to: '/admin/products', label: 'Products', icon: Package },
   { to: '/admin/categories', label: 'Categories', icon: Tag },
   { to: '/admin/orders', label: 'Orders', icon: ShoppingCart },
+  { to: '/admin/warehouses', label: 'Warehouses', icon: Building2 },
+  { to: '/admin/inventory', label: 'Inventory', icon: Boxes },
   // { to: '/admin/customers', label: 'Customers', icon: Users, disabled: true },
   // { to: '/admin/settings', label: 'Settings', icon: Settings, disabled: true },
 ]
@@ -14,12 +16,12 @@ const nav = [
 export default function AdminLayout() {
   return (
     <AdminGate>
-      <div className="min-h-screen grid lg:grid-cols-[240px_1fr]">
+      <div className="min-h-screen bg-background lg:grid lg:grid-cols-[260px_1fr]">
         {/* Sidebar */}
-        <aside className="border-r bg-card/30">
-          <div className="sticky top-0 p-4">
-            <div className="mb-4">
-              <div className="text-lg font-bold">MyShop Admin</div>
+        <aside className="border-r bg-secondary/80">
+          <div className="sticky top-0 h-full p-4">
+            <div className="mb-6">
+              <div className="text-lg font-semibold text-foreground">MyShop Admin</div>
               <div className="text-xs text-muted-foreground">Manage your store</div>
             </div>
             <nav className="space-y-1">
@@ -30,7 +32,7 @@ export default function AdminLayout() {
                   className={({ isActive }) =>
                     [
                       'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
-                      isActive ? 'bg-muted font-medium' : 'hover:bg-muted',
+                      isActive ? 'bg-primary/10 font-medium text-primary' : 'hover:bg-muted',
                       disabled ? 'pointer-events-none opacity-50' : '',
                     ].join(' ')
                   }
@@ -44,7 +46,7 @@ export default function AdminLayout() {
         </aside>
 
         {/* Main */}
-        <main className="p-6">
+        <main className="p-6 lg:p-8">
           <Outlet />
         </main>
       </div>

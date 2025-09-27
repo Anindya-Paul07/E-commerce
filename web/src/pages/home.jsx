@@ -4,6 +4,8 @@ import { api } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Badge from "@/components/ui/badge"
+import { useSession } from '@/context/SessionContext'
+import { notify } from '@/lib/notify'
 
 export default function Home() {
   const [items, setItems] = useState([])
@@ -13,6 +15,7 @@ export default function Home() {
   const [cats, setCats] = useState([])
   const [catsLoading, setCatsLoading] = useState(true)
   const [catsErr, setCatsErr] = useState('')
+  const { refreshCart } = useSession()
 
   // Dropdown state
   const [showCatMenu, setShowCatMenu] = useState(false)
@@ -70,18 +73,25 @@ export default function Home() {
       await api.post('/cart/add', { productId, qty: 1 })
       // refresh navbar badge
       window.dispatchEvent(new CustomEvent('cart:updated'))
+      refreshCart()
+      notify.success('Added to cart')
     } catch (e) {
-      alert(e.message || 'Failed to add to cart')
+      notify.error(e.message || 'Failed to add to cart')
     }
   }
 
   return (
     <div className="container space-y-10 py-10">
       {/* Hero */}
-      <section className="relative rounded-lg bg-gradient-to-r from-muted to-transparent p-8">
-        <h2 className="text-3xl font-bold tracking-tight">End-of-Season Sale</h2>
-        <p className="mt-1 text-muted-foreground">Up to 40% off on selected styles.</p>
-        <div className="mt-6 flex gap-3">
+      <section className="relative overflow-hidden rounded-2xl border bg-gradient-to-r from-primary/12 via-primary/8 to-secondary p-8 shadow-sm">
+        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary/20 blur-3xl" aria-hidden="true" />
+        <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+          End-of-Season Sale
+        </h2>
+        <p className="mt-2 max-w-xl text-base text-muted-foreground">
+          Elevate your everyday essentials with curated drops and limited-run collaborations inspired by modern retail leaders.
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
           {/* Shop now -> smooth scroll to products section on THIS page */}
           <Button type="button" onClick={scrollToProducts}>Shop now</Button>
 
@@ -141,40 +151,55 @@ export default function Home() {
           <h3 className="text-xl font-semibold">Featured</h3>
         </div>
 
-        {loading && <p className="text-sm text-muted-foreground">Loading products…</p>}
         {err && <p className="text-sm text-red-600">{err}</p>}
-
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {items.map(p => (
-            <Card key={p._id} className="group">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="truncate">
-                    <Link to={`/product/${p.slug}`} className="hover:underline">{p.title}</Link>
-                  </CardTitle>
-                  {p.tags?.[0] && <Badge>{p.tags[0]}</Badge>}
+        {loading ? (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <div key={idx} className="rounded-xl border bg-card/80 p-4 shadow-sm">
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="skeleton h-5 w-3/4 rounded" />
+                  <div className="skeleton h-5 w-10 rounded" />
                 </div>
-              </CardHeader>
-              <CardContent>
-                {/* Link image to the SAME route as the title */}
-                <Link to={`/product/${p.slug}`}>
-                  {p.images?.[0]
-                    ? <img
-                        src={p.images[0]}
-                        alt={p.title}
-                        className="aspect-square w-full rounded-md object-cover bg-muted/60 transition-colors group-hover:bg-muted"
-                      />
-                    : <div className="aspect-square w-full rounded-md bg-muted/60 group-hover:bg-muted transition-colors" />
-                  }
-                </Link>
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="font-semibold">${Number(p.price).toFixed(2)}</span>
-                  <Button size="sm" onClick={() => addToCart(p._id)}>Add to cart</Button>
+                <div className="skeleton aspect-square w-full rounded-lg" />
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="skeleton h-4 w-16 rounded" />
+                  <div className="skeleton h-9 w-24 rounded-full" />
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {items.map(p => (
+              <Card key={p._id} className="group border-none bg-card shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="truncate text-base font-semibold">
+                      <Link to={`/product/${p.slug}`} className="hover:underline">{p.title}</Link>
+                    </CardTitle>
+                    {p.tags?.[0] && <Badge>{p.tags[0]}</Badge>}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Link to={`/product/${p.slug}`}>
+                    {p.images?.[0]
+                      ? <img
+                          src={p.images[0]}
+                          alt={p.title}
+                          className="aspect-square w-full rounded-lg object-cover bg-muted/60 transition duration-300 group-hover:scale-[1.02]"
+                        />
+                      : <div className="aspect-square w-full rounded-lg bg-muted" />
+                    }
+                  </Link>
+                  <div className="mt-4 flex items-center justify-between text-sm">
+                    <span className="font-semibold">${Number(p.price).toFixed(2)}</span>
+                    <Button size="sm" onClick={() => addToCart(p._id)}>Add to cart</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   )

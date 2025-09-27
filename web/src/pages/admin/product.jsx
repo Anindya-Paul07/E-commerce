@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { notify } from '@/lib/notify'
+import { useConfirm } from '@/context/ConfirmContext'
 
 const EMPTY = {
   title: '',
@@ -46,6 +48,7 @@ export default function AdminProductsPage() {
   const [err, setErr] = useState('')
   const [form, setForm] = useState(EMPTY)
   const [editingId, setEditingId] = useState(null)
+  const confirm = useConfirm()
 
   const catMap = useMemo(
     () => new Map(categories.map(c => [String(c._id), c])),
@@ -58,7 +61,7 @@ export default function AdminProductsPage() {
       const { items } = await api.get('/categories?limit=200')
       setCategories(items || [])
     } catch (e) {
-      console.error(e)
+      notify.error(e.message || 'Failed to load categories')
     } finally {
       setCatLoading(false)
     }
@@ -117,8 +120,11 @@ export default function AdminProductsPage() {
       await api.post('/products', payload)
       setForm(EMPTY)
       await fetchList()
+      notify.success('Product created')
     } catch (e) {
-      setErr(e.message || 'Create failed')
+      const message = e.message || 'Create failed'
+      setErr(message)
+      notify.error(message)
     } finally {
       setSaving(false)
     }
@@ -153,22 +159,28 @@ export default function AdminProductsPage() {
       setEditingId(null)
       setForm(EMPTY)
       await fetchList()
+      notify.success('Product updated')
     } catch (e) {
-      setErr(e.message || 'Update failed')
+      const message = e.message || 'Update failed'
+      setErr(message)
+      notify.error(message)
     } finally {
       setSaving(false)
     }
   }
 
   async function del(id) {
-    // eslint-disable-next-line no-alert
-    if (!confirm('Delete this product?')) return
+    const ok = await confirm('Delete this product?', { description: 'This action cannot be undone.' })
+    if (!ok) return
     setErr('')
     try {
       await api.del(`/products/${id}`)
       await fetchList()
+      notify.success('Product deleted')
     } catch (e) {
-      setErr(e.message || 'Delete failed')
+      const message = e.message || 'Delete failed'
+      setErr(message)
+      notify.error(message)
     }
   }
 

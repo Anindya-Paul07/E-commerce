@@ -29,10 +29,17 @@ export async function addItem(req, res, next) {
     } else {
       cart.items.push({
         product: product._id,
+        seller: product.seller,
+        shop: product.shop,
         title: product.title,
         price: product.price,
         image: product.images?.[0] || '',
         qty: Number(qty || 1),
+        commissionRate: product.commission?.rate,
+        metadata: {
+          fulfillmentMode: product.fulfillmentMode,
+          visibility: product.visibility,
+        },
       });
     }
     await cart.save();

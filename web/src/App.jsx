@@ -12,6 +12,8 @@ import Dashboard from '@/pages/admin/dashboard'
 import AdminProducts from '@/pages/admin/product'
 import AdminCategory from '@/pages/admin/category'
 import AdminOrdersPage from '@/pages/admin/order'
+import AdminWarehouses from '@/pages/admin/warehouse'
+import AdminInventory from '@/pages/admin/inventory'
 
 export default function App() {
   return (
@@ -31,6 +33,8 @@ export default function App() {
           <Route path="/admin/products" element={<AdminProducts />} />
           <Route path="/admin/categories" element={<AdminCategory />} />
           <Route path="/admin/orders" element={<AdminOrdersPage />} />
+          <Route path="/admin/warehouses" element={<AdminWarehouses />} />
+          <Route path="/admin/inventory" element={<AdminInventory />} />
         </Route>
       </Routes>
     </BrowserRouter>

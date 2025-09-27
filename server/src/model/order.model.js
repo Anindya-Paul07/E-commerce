@@ -1,12 +1,43 @@
 import mongoose from 'mongoose';
 
-const orderItemSchema = new mongoose.Schema({
-  product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
-  title: { type: String, required: true },
-  price: { type: Number, required: true, min: 0 },
-  image: { type: String, default: '' },
-  qty: { type: Number, required: true, min: 1 },
-}, { _id: false });
+const fulfillmentEventSchema = new mongoose.Schema(
+  {
+    status: {
+      type: String,
+      enum: ['pending', 'allocated', 'packed', 'shipped', 'in_transit', 'out_for_delivery', 'delivered', 'canceled', 'returned'],
+    },
+    at: { type: Date, default: () => new Date() },
+    notes: { type: String, trim: true },
+    actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  },
+  { _id: false }
+);
+
+const orderItemSchema = new mongoose.Schema(
+  {
+    product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+    seller: { type: mongoose.Schema.Types.ObjectId, ref: 'Seller', index: true },
+    shop: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop' },
+    title: { type: String, required: true },
+    price: { type: Number, required: true, min: 0 },
+    image: { type: String, default: '' },
+    qty: { type: Number, required: true, min: 1 },
+    commissionRate: { type: Number, min: 0, max: 1 },
+    commissionAmount: { type: Number, min: 0 },
+    fulfillmentStatus: {
+      type: String,
+      enum: ['pending', 'allocated', 'packed', 'shipped', 'in_transit', 'out_for_delivery', 'delivered', 'canceled', 'returned'],
+      default: 'pending',
+      index: true,
+    },
+    fulfillmentEvents: { type: [fulfillmentEventSchema], default: [] },
+    warehouse: { type: mongoose.Schema.Types.ObjectId, ref: 'Warehouse' },
+    estimatedDelivery: { type: Date },
+    deliveredAt: { type: Date },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { _id: false }
+);
 
 const addressSchema = new mongoose.Schema({
   fullName: String,
@@ -32,6 +63,48 @@ const orderSchema = new mongoose.Schema({
   paymentMethod: { type: String, enum: ['cod','online'], default: 'cod' },
   shippingAddress: addressSchema,
   notes: { type: String, default: '' },
+  fulfillmentSummary: {
+    status: {
+      type: String,
+      enum: ['pending', 'allocated', 'packed', 'shipped', 'in_transit', 'out_for_delivery', 'delivered', 'canceled', 'returned'],
+      default: 'pending',
+      index: true,
+    },
+    estimatedDeliveryStart: { type: Date },
+    estimatedDeliveryEnd: { type: Date },
+    promisedBy: { type: Date },
+    trackingNumber: { type: String, trim: true },
+    carrier: { type: String, trim: true },
+    trackingUrl: { type: String, trim: true },
+    lastUpdatedAt: { type: Date },
+  },
+  settlement: {
+    status: {
+      type: String,
+      enum: ['pending', 'partial', 'settled', 'refunded', 'disputed'],
+      default: 'pending',
+    },
+    commissionTotal: { type: Number, default: 0 },
+    netPayoutTotal: { type: Number, default: 0 },
+    payout: { type: mongoose.Schema.Types.ObjectId, ref: 'Payout' },
+    ledgerEntries: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'LedgerEntry',
+        },
+      ],
+      default: [],
+    },
+  },
+  compliance: {
+    holdPlaced: { type: Boolean, default: false },
+    holdReason: { type: String, trim: true },
+    riskScore: { type: Number, default: 0 },
+  },
+  customerNotes: { type: String, trim: true },
+  internalNotes: { type: String, trim: true },
+  metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
 }, { timestamps: true });
 
 export default mongoose.model('Order', orderSchema);

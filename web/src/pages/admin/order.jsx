@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { notify } from '@/lib/notify'
 
 const STATUS = ['pending','paid','shipped','delivered','canceled']
 
@@ -17,7 +18,11 @@ export default function AdminOrdersPage() {
       const q = statusFilter ? `?status=${statusFilter}` : ''
       const { items } = await api.get(`/orders${q}`)
       setItems(items || [])
-    } catch (e) { setErr(e.message || 'Failed to load') }
+    } catch (e) {
+      const message = e.message || 'Failed to load'
+      setErr(message)
+      notify.error(message)
+    }
     finally { setLoading(false) }
   }
   useEffect(() => { load() }, [statusFilter])
@@ -26,7 +31,12 @@ export default function AdminOrdersPage() {
     try {
       const { order } = await api.patch(`/orders/${id}/status`, { status })
       setItems(prev => prev.map(o => o._id === id ? order : o))
-    } catch (e) { alert(e.message) }
+      notify.success(`Order ${order.number} set to ${status}`)
+    } catch (e) {
+      const message = e.message || 'Failed to update status'
+      setErr(message)
+      notify.error(message)
+    }
   }
 
   return (

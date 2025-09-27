@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useSession } from '@/context/SessionContext'
+import { notify } from '@/lib/notify'
 
 export default function Register() {
   const navigate = useNavigate()
@@ -11,16 +13,23 @@ export default function Register() {
   const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
+  const { setUser, refreshCart } = useSession()
 
   async function onSubmit(e) {
     e.preventDefault()
     setErr('')
     setLoading(true)
     try {
-      await api.post('/auth/register', { name, email, password })
-      navigate('/')
+      const { user } = await api.post('/auth/register', { name, email, password })
+      setUser(user || null)
+      refreshCart()
+      notify.success('Account created!')
+      const destination = user?.roles?.includes('admin') ? '/admin' : '/'
+      navigate(destination, { replace: true })
     } catch (e) {
-      setErr(e.message)
+      const message = e.message || 'Unable to create account'
+      setErr(message)
+      notify.error(message)
     } finally {
       setLoading(false)
     }

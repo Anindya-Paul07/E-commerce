@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { notify } from '@/lib/notify'
+import { useConfirm } from '@/context/ConfirmContext'
 
 const EMPTY = {
   name: '', slug: '', description: '', image: '', parent: '', isActive: true, sortOrder: 0
@@ -29,13 +31,18 @@ export default function AdminCategoriesPage() {
   const [form, setForm] = useState(EMPTY)
   const [editingId, setEditingId] = useState(null)
   const [saving, setSaving] = useState(false)
+  const confirm = useConfirm()
 
   async function load() {
     setLoading(true); setErr('')
     try {
       const { items } = await api.get('/categories?limit=200')
       setList(items || [])
-    } catch (e) { setErr(e.message || 'Failed to load') }
+    } catch (e) {
+      const message = e.message || 'Failed to load'
+      setErr(message)
+      notify.error(message)
+    }
     finally { setLoading(false) }
   }
   useEffect(() => { load() }, [])
@@ -59,7 +66,12 @@ export default function AdminCategoriesPage() {
       await api.post('/categories', payload)
       setForm(EMPTY); setEditingId(null)
       await load()
-    } catch (e) { setErr(e.message || 'Create failed') }
+      notify.success('Category created')
+    } catch (e) {
+      const message = e.message || 'Create failed'
+      setErr(message)
+      notify.error(message)
+    }
     finally { setSaving(false) }
   }
 
@@ -86,16 +98,29 @@ export default function AdminCategoriesPage() {
       await api.patch(`/categories/${editingId}`, payload)
       setForm(EMPTY); setEditingId(null)
       await load()
-    } catch (e) { setErr(e.message || 'Update failed') }
+      notify.success('Category updated')
+    } catch (e) {
+      const message = e.message || 'Update failed'
+      setErr(message)
+      notify.error(message)
+    }
     finally { setSaving(false) }
   }
 
   async function del(id) {
-    // eslint-disable-next-line no-alert
-    if (!confirm('Delete this category?')) return
+    const ok = await confirm('Delete this category?', { description: 'Categories in use must be reassigned before deletion.' })
+    if (!ok) return
     setErr('')
-    try { await api.delete(`/categories/${id}`); await load() }
-    catch (e) { setErr(e.message || 'Delete failed') }
+    try {
+      await api.delete(`/categories/${id}`)
+      await load()
+      notify.success('Category removed')
+    }
+    catch (e) {
+      const message = e.message || 'Delete failed'
+      setErr(message)
+      notify.error(message)
+    }
   }
 
   return (
