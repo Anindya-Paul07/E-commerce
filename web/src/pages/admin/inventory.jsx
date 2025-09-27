@@ -1,205 +1,281 @@
-import { useEffect, useMemo, useState } from 'react'
-import { api } from '@/lib/api'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { notify } from '@/lib/notify'
-import { useConfirm } from '@/context/ConfirmContext'
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { notify } from '@/lib/notify';
 
-const EMPTY = {
-  product: '',
-  warehouse: '',
-  onHand: 0,
-  reserved: 0,
-  incoming: 0,
-  safetyStock: 0,
-  notes: '',
-}
+const RECEIVE_DEFAULT = { qty: 0, warehouseCode: '', reason: 'receive' };
+const ADJUST_DEFAULT = { qty: 0, warehouseCode: '', reason: 'adjust' };
 
 export default function AdminInventoryPage() {
-  const [inventory, setInventory] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [form, setForm] = useState(EMPTY)
-  const [editingId, setEditingId] = useState(null)
-  const [products, setProducts] = useState([])
-  const [warehouses, setWarehouses] = useState([])
-  const confirm = useConfirm()
-
-  const loadOptions = useMemo(() => async () => {
-    try {
-      const [{ items: prodItems }, { items: whItems }] = await Promise.all([
-        api.get('/products?limit=200'),
-        api.get('/warehouses?limit=200'),
-      ])
-      setProducts(prodItems || [])
-      setWarehouses(whItems || [])
-    } catch (e) {
-      notify.error(e.message || 'Failed to load products or warehouses')
-    }
-  }, [])
-
-  const loadInventory = useMemo(() => async () => {
-    setLoading(true); setError('')
-    try {
-      const { items } = await api.get('/inventory?limit=200')
-      setInventory(items || [])
-    } catch (e) {
-      const message = e.message || 'Failed to load inventory'
-      setError(message)
-      notify.error(message)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const [products, setProducts] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState('');
+  const [levels, setLevels] = useState([]);
+  const [levelLoading, setLevelLoading] = useState(false);
+  const [receiveForm, setReceiveForm] = useState(RECEIVE_DEFAULT);
+  const [adjustForm, setAdjustForm] = useState(ADJUST_DEFAULT);
+  const [lowStock, setLowStock] = useState([]);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    loadOptions()
-    loadInventory()
-  }, [loadOptions, loadInventory])
+    (async () => {
+      try {
+        const [{ items: prodItems }, { items: whItems }, { items: low } ] = await Promise.all([
+          api.get('/products?limit=200&status=active&sort=title'),
+          api.get('/warehouses'),
+          api.get('/inventory/low-stock'),
+        ]);
+        setProducts(prodItems || []);
+        setWarehouses(whItems || []);
+        setLowStock(low || []);
+      } catch (err) {
+        notify.error(err.message || 'Failed to load inventory metadata');
+      }
+    })();
+  }, []);
 
-  function onChange(e) {
-    const { name, value } = e.target
-    setForm(prev => ({ ...prev, [name]: name === 'product' || name === 'warehouse' ? value : Number(value) }))
-  }
-
-  async function save(e) {
-    e.preventDefault()
-    setSaving(true); setError('')
+  const fetchLevels = async (productId) => {
+    if (!productId) {
+      setLevels([]);
+      return;
+    }
+    setLevelLoading(true);
+    setError('');
     try {
-      const payload = { ...form }
-      if (!payload.product || !payload.warehouse) {
-        throw new Error('Select product and warehouse')
-      }
-      if (editingId) {
-        const { inventory: updated } = await api.patch(`/inventory/${editingId}`, payload)
-        setInventory(prev => prev.map(i => (i._id === editingId ? updated : i)))
-        notify.success('Inventory updated')
-      } else {
-        const { inventory: created } = await api.post('/inventory', payload)
-        setInventory(prev => [created, ...prev])
-        notify.success('Inventory created')
-      }
-      setForm(EMPTY)
-      setEditingId(null)
-    } catch (e) {
-      const message = e.message || 'Save failed'
-      setError(message)
-      notify.error(message)
+      const { levels } = await api.get(`/inventory/levels/${productId}`);
+      setLevels(levels || []);
+    } catch (err) {
+      setError(err.message || 'Failed to load stock levels');
+      setLevels([]);
     } finally {
-      setSaving(false)
+      setLevelLoading(false);
     }
-  }
+  };
 
-  async function remove(id) {
-    const ok = await confirm('Delete inventory record?', { description: 'This will remove stock tracking for this product/warehouse.' })
-    if (!ok) return
+  useEffect(() => {
+    if (selectedProduct) {
+      fetchLevels(selectedProduct);
+    } else {
+      setLevels([]);
+    }
+  }, [selectedProduct]);
+
+  const onReceive = async (event) => {
+    event.preventDefault();
+    if (!selectedProduct || !receiveForm.qty) return;
     try {
-      await api.del(`/inventory/${id}`)
-      setInventory(prev => prev.filter(i => i._id !== id))
-      notify.success('Inventory record deleted')
-    } catch (e) {
-      notify.error(e.message || 'Delete failed')
+      await api.post('/inventory/receive', {
+        productIdOrSlug: selectedProduct,
+        qty: Number(receiveForm.qty),
+        warehouseCode: receiveForm.warehouseCode || undefined,
+        reason: receiveForm.reason || 'receive',
+      });
+      notify.success('Stock received');
+      setReceiveForm(RECEIVE_DEFAULT);
+      await fetchLevels(selectedProduct);
+      const refreshed = await api.get('/inventory/low-stock');
+      setLowStock(refreshed.items || []);
+    } catch (err) {
+      notify.error(err.message || 'Failed to receive stock');
     }
-  }
+  };
 
-  function startEdit(entry) {
-    setEditingId(entry._id)
-    setForm({
-      product: entry.product?._id || entry.product,
-      warehouse: entry.warehouse?._id || entry.warehouse,
-      onHand: entry.onHand ?? 0,
-      reserved: entry.reserved ?? 0,
-      incoming: entry.incoming ?? 0,
-      safetyStock: entry.safetyStock ?? 0,
-      notes: entry.notes || '',
-    })
-  }
-
-  function cancelEdit() {
-    setEditingId(null)
-    setForm(EMPTY)
-  }
+  const onAdjust = async (event) => {
+    event.preventDefault();
+    if (!selectedProduct || !adjustForm.qty) return;
+    try {
+      await api.post('/inventory/adjust', {
+        productIdOrSlug: selectedProduct,
+        qty: Number(adjustForm.qty),
+        warehouseCode: adjustForm.warehouseCode || undefined,
+        reason: adjustForm.reason || 'adjust',
+      });
+      notify.success('Inventory adjusted');
+      setAdjustForm(ADJUST_DEFAULT);
+      await fetchLevels(selectedProduct);
+      const refreshed = await api.get('/inventory/low-stock');
+      setLowStock(refreshed.items || []);
+    } catch (err) {
+      notify.error(err.message || 'Failed to adjust stock');
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Inventory</h1>
-          <p className="text-sm text-muted-foreground">Track stock across warehouses and products.</p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Inventory Control</h1>
+        <p className="text-sm text-muted-foreground">Monitor stock across warehouses, receive new items, and adjust physical counts.</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>{editingId ? 'Edit inventory' : 'Assign inventory'}</CardTitle>
+          <CardTitle>Select product</CardTitle>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={save} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <select className="h-10 rounded-md border bg-background px-3" name="product" value={form.product} onChange={onChange} required>
-              <option value="">Select product</option>
-              {products.map(p => (
-                <option key={p._id} value={p._id}>{p.title}</option>
-              ))}
-            </select>
-            <select className="h-10 rounded-md border bg-background px-3" name="warehouse" value={form.warehouse} onChange={onChange} required>
-              <option value="">Select warehouse</option>
-              {warehouses.map(w => (
-                <option key={w._id} value={w._id}>{w.name}</option>
-              ))}
-            </select>
-            <input className="h-10 rounded-md border bg-background px-3" name="onHand" type="number" min={0} value={form.onHand} onChange={onChange} placeholder="On hand" required />
-            <input className="h-10 rounded-md border bg-background px-3" name="reserved" type="number" min={0} value={form.reserved} onChange={onChange} placeholder="Reserved" />
-            <input className="h-10 rounded-md border bg-background px-3" name="incoming" type="number" min={0} value={form.incoming} onChange={onChange} placeholder="Incoming" />
-            <input className="h-10 rounded-md border bg-background px-3" name="safetyStock" type="number" min={0} value={form.safetyStock} onChange={onChange} placeholder="Safety stock" />
-
-            <textarea className="min-h-[80px] rounded-md border bg-background px-3 py-2 sm:col-span-2 lg:col-span-3" name="notes" value={form.notes} onChange={(e) => setForm(prev => ({ ...prev, notes: e.target.value }))} placeholder="Notes" />
-
-            <div className="sm:col-span-2 lg:col-span-3 flex gap-2">
-              <Button disabled={saving}>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Assign inventory'}</Button>
-              {editingId && <Button type="button" variant="outline" onClick={cancelEdit}>Cancel</Button>}
-            </div>
-            {error && <p className="sm:col-span-2 lg:col-span-3 text-sm text-red-600">{error}</p>}
-          </form>
+        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <select
+            className="h-10 w-full sm:w-96 rounded-md border bg-background px-3"
+            value={selectedProduct}
+            onChange={(event) => setSelectedProduct(event.target.value)}
+          >
+            <option value="">Choose a product</option>
+            {products.map((product) => (
+              <option key={product._id} value={product._id}>
+                {product.title}
+              </option>
+            ))}
+          </select>
+          {error && <span className="text-sm text-red-600">{error}</span>}
         </CardContent>
       </Card>
 
+      {selectedProduct && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Per-warehouse levels</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {levelLoading ? (
+              <p className="text-sm text-muted-foreground">Loading stock levels…</p>
+            ) : !levels.length ? (
+              <p className="text-sm text-muted-foreground">No inventory records yet for this product.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-b">
+                    <tr className="text-left">
+                      <th className="py-2 pr-3">Warehouse</th>
+                      <th className="py-2 pr-3">Variant</th>
+                      <th className="py-2 pr-3">On hand</th>
+                      <th className="py-2 pr-3">Reserved</th>
+                      <th className="py-2 pr-3">Available</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {levels.map((level) => (
+                      <tr key={`${level.warehouse?.code}-${level.variant?.sku}`} className="border-b last:border-0">
+                        <td className="py-2 pr-3">{level.warehouse?.name || level.warehouse?.code || '—'}</td>
+                        <td className="py-2 pr-3">{level.variant?.sku || 'Default'}</td>
+                        <td className="py-2 pr-3">{level.qtyOnHand}</td>
+                        <td className="py-2 pr-3">{level.qtyReserved}</td>
+                        <td className="py-2 pr-3">{level.qtyAvailable}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedProduct && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Receive stock</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={onReceive} className="grid gap-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    className="h-10 rounded-md border bg-background px-3"
+                    placeholder="Quantity"
+                    value={receiveForm.qty}
+                    onChange={(event) => setReceiveForm((prev) => ({ ...prev, qty: event.target.value }))}
+                    required
+                  />
+                  <select
+                    className="h-10 rounded-md border bg-background px-3"
+                    value={receiveForm.warehouseCode}
+                    onChange={(event) => setReceiveForm((prev) => ({ ...prev, warehouseCode: event.target.value }))}
+                  >
+                    <option value="">Default warehouse</option>
+                    {warehouses.map((w) => (
+                      <option key={w._id} value={w.code}>{w.code}</option>
+                    ))}
+                  </select>
+                </div>
+                <input
+                  className="h-10 rounded-md border bg-background px-3"
+                  placeholder="Reason"
+                  value={receiveForm.reason}
+                  onChange={(event) => setReceiveForm((prev) => ({ ...prev, reason: event.target.value }))}
+                />
+                <Button>Receive</Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Adjust stock</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={onAdjust} className="grid gap-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    className="h-10 rounded-md border bg-background px-3"
+                    placeholder="Adjustment (use negative to remove)"
+                    value={adjustForm.qty}
+                    onChange={(event) => setAdjustForm((prev) => ({ ...prev, qty: event.target.value }))}
+                    required
+                  />
+                  <select
+                    className="h-10 rounded-md border bg-background px-3"
+                    value={adjustForm.warehouseCode}
+                    onChange={(event) => setAdjustForm((prev) => ({ ...prev, warehouseCode: event.target.value }))}
+                  >
+                    <option value="">Default warehouse</option>
+                    {warehouses.map((w) => (
+                      <option key={w._id} value={w.code}>{w.code}</option>
+                    ))}
+                  </select>
+                </div>
+                <input
+                  className="h-10 rounded-md border bg-background px-3"
+                  placeholder="Reason"
+                  value={adjustForm.reason}
+                  onChange={(event) => setAdjustForm((prev) => ({ ...prev, reason: event.target.value }))}
+                />
+                <Button>Adjust</Button>
+              </form>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Provide negative values to decrease on-hand counts. Adjustments respect available inventory and will fail if insufficient stock exists.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <Card>
-        <CardHeader><CardTitle>Inventory overview</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Low stock alerts</CardTitle>
+        </CardHeader>
         <CardContent>
-          {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : inventory.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No inventory records yet.</p>
+          {!lowStock.length ? (
+            <p className="text-sm text-muted-foreground">No low-stock items detected.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left border-b">
-                    <th className="py-2 pr-3">Product</th>
+                <thead className="border-b text-left">
+                  <tr>
+                    <th className="py-2 pr-3">SKU</th>
                     <th className="py-2 pr-3">Warehouse</th>
-                    <th className="py-2 pr-3">On hand</th>
-                    <th className="py-2 pr-3">Reserved</th>
-                    <th className="py-2 pr-3">Incoming</th>
                     <th className="py-2 pr-3">Available</th>
-                    <th className="py-2 pr-3">Actions</th>
+                    <th className="py-2 pr-3">Threshold</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {inventory.map(entry => (
-                    <tr key={entry._id} className="border-b last:border-0">
-                      <td className="py-2 pr-3 font-medium">{entry.product?.title || '—'}</td>
-                      <td className="py-2 pr-3">{entry.warehouse?.name || '—'}</td>
-                      <td className="py-2 pr-3">{entry.onHand}</td>
-                      <td className="py-2 pr-3">{entry.reserved}</td>
-                      <td className="py-2 pr-3">{entry.incoming}</td>
-                      <td className="py-2 pr-3">{Math.max(0, entry.onHand - entry.reserved)}</td>
-                      <td className="py-2 pr-3">
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => startEdit(entry)}>Edit</Button>
-                          <Button size="sm" variant="destructive" onClick={() => remove(entry._id)}>Delete</Button>
-                        </div>
-                      </td>
+                  {lowStock.map((row) => (
+                    <tr key={`${row.variant?.sku}-${row.warehouse?.code}`} className="border-b last:border-0">
+                      <td className="py-2 pr-3">{row.variant?.sku || '—'}</td>
+                      <td className="py-2 pr-3">{row.warehouse?.code || '—'}</td>
+                      <td className="py-2 pr-3">{row.qtyAvailable ?? 0}</td>
+                      <td className="py-2 pr-3">{row.lowStockThreshold ?? 0}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -209,5 +285,5 @@ export default function AdminInventoryPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

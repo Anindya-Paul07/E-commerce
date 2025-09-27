@@ -1,17 +1,17 @@
 import { Router } from 'express';
 import passport from 'passport';
 import { rolesRequired } from '../middlewares/rolesRequired.js';
-import { list, getOne, create, update, remove } from '../controller/product.controller.js';
+import { list, getOne, create, update, remove, availability } from '../controller/product.controller.js';
 
-const r = Router();
+const router = Router();
+const adminAuth = [passport.authenticate('jwt', { session: false }), rolesRequired(['admin'])];
 
-// Public
-r.get('/', list);
-r.get('/:idOrSlug', getOne);
+router.get('/', list);
+router.get('/:idOrSlug/stock', availability);
+router.get('/:idOrSlug', getOne);
 
-// Admin-only (toggle rolesRequired off if you want to test without admin)
-r.post('/', passport.authenticate('jwt', { session: false }), rolesRequired(['admin']), create);
-r.patch('/:id', passport.authenticate('jwt', { session: false }), rolesRequired(['admin']), update);
-r.delete('/:id', passport.authenticate('jwt', { session: false }), rolesRequired(['admin']), remove);
+router.post('/', ...adminAuth, create);
+router.patch('/:id', ...adminAuth, update);
+router.delete('/:id', ...adminAuth, remove);
 
-export default r;
+export default router;

@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 
 const cartItemSchema = new mongoose.Schema({
   product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+  variant: { type: mongoose.Schema.Types.ObjectId, ref: 'Variant' },
   seller: { type: mongoose.Schema.Types.ObjectId, ref: 'Seller' },
   shop: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop' },
   title: { type: String, required: true },             // snapshot

@@ -2,19 +2,24 @@ import { Router } from 'express';
 import passport from 'passport';
 import { rolesRequired } from '../middlewares/rolesRequired.js';
 import {
-  listInventory,
-  getInventory,
-  upsertInventory,
-  updateInventory,
-  deleteInventory,
+  getLevels,
+  receive,
+  adjust,
+  transfer,
+  listMoves,
+  setLowStockThreshold,
+  listLowStock,
 } from '../controller/inventory.controller.js';
 
 const router = Router();
+const adminAuth = [passport.authenticate('jwt', { session: false }), rolesRequired(['admin'])];
 
-router.get('/', passport.authenticate('jwt', { session: false }), rolesRequired(['admin']), listInventory);
-router.get('/:id', passport.authenticate('jwt', { session: false }), rolesRequired(['admin']), getInventory);
-router.post('/', passport.authenticate('jwt', { session: false }), rolesRequired(['admin']), upsertInventory);
-router.patch('/:id', passport.authenticate('jwt', { session: false }), rolesRequired(['admin']), updateInventory);
-router.delete('/:id', passport.authenticate('jwt', { session: false }), rolesRequired(['admin']), deleteInventory);
+router.get('/levels/:idOrSlug', ...adminAuth, getLevels);
+router.post('/receive', ...adminAuth, receive);
+router.post('/adjust', ...adminAuth, adjust);
+router.post('/transfer', ...adminAuth, transfer);
+router.get('/moves', ...adminAuth, listMoves);
+router.patch('/item/:variantId/:warehouseId', ...adminAuth, setLowStockThreshold);
+router.get('/low-stock', ...adminAuth, listLowStock);
 
 export default router;

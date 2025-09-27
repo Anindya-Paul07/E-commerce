@@ -22,7 +22,8 @@ const EMPTY = {
     email: '',
   },
   notes: '',
-  isActive: true,
+  active: true,
+  isDefault: false,
 }
 
 function flatten(warehouse) {
@@ -42,7 +43,8 @@ function flatten(warehouse) {
       email: warehouse?.contact?.email || '',
     },
     notes: warehouse?.notes || '',
-    isActive: warehouse?.isActive ?? true,
+    active: warehouse?.active ?? true,
+    isDefault: warehouse?.isDefault ?? false,
   }
 }
 
@@ -126,7 +128,7 @@ export default function AdminWarehousesPage() {
     const ok = await confirm('Delete warehouse?', { description: 'This will remove the warehouse from your network.' })
     if (!ok) return
     try {
-      await api.del(`/warehouses/${id}`)
+      await api.delete(`/warehouses/${id}`)
       setWarehouses(prev => prev.filter(w => w._id !== id))
       notify.success('Warehouse removed')
     } catch (e) {
@@ -176,9 +178,14 @@ export default function AdminWarehousesPage() {
 
             <textarea className="min-h-[80px] rounded-md border bg-background px-3 py-2 sm:col-span-2" name="notes" value={form.notes} onChange={onChange} placeholder="Notes" />
 
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="isActive" checked={form.isActive} onChange={onChange} /> Active
-            </label>
+            <div className="flex gap-6 sm:col-span-2 text-sm">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" name="active" checked={form.active} onChange={onChange} /> Active
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" name="isDefault" checked={form.isDefault} onChange={onChange} /> Default fulfillment hub
+              </label>
+            </div>
 
             <div className="sm:col-span-2 flex gap-2">
               <Button disabled={saving}>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Create warehouse'}</Button>
@@ -206,6 +213,7 @@ export default function AdminWarehousesPage() {
                     <th className="py-2 pr-3">Location</th>
                     <th className="py-2 pr-3">Contact</th>
                     <th className="py-2 pr-3">Active</th>
+                    <th className="py-2 pr-3">Default</th>
                     <th className="py-2 pr-3">Actions</th>
                   </tr>
                 </thead>
@@ -216,7 +224,8 @@ export default function AdminWarehousesPage() {
                       <td className="py-2 pr-3">{w.code}</td>
                       <td className="py-2 pr-3">{[w?.address?.city, w?.address?.state].filter(Boolean).join(', ') || '—'}</td>
                       <td className="py-2 pr-3">{w?.contact?.name || '—'}</td>
-                      <td className="py-2 pr-3">{w.isActive ? 'Yes' : 'No'}</td>
+                      <td className="py-2 pr-3">{w.active ? 'Yes' : 'No'}</td>
+                      <td className="py-2 pr-3">{w.isDefault ? 'Yes' : 'No'}</td>
                       <td className="py-2 pr-3">
                         <div className="flex gap-2">
                           <Button size="sm" variant="outline" onClick={() => startEdit(w)}>Edit</Button>

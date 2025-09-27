@@ -1,39 +1,96 @@
-import { useEffect, useState } from 'react'
-import { api } from '@/lib/api'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useSession } from '@/context/SessionContext'
-import { useConfirm } from '@/context/ConfirmContext'
-import { notify } from '@/lib/notify'
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useConfirm } from '@/context/ConfirmContext';
+import { notify } from '@/lib/notify';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import {
+  fetchCart,
+  updateCartItem as updateCartItemThunk,
+  removeCartItem as removeCartItemThunk,
+  clearCart as clearCartThunk,
+} from '@/store/slices/cartSlice';
 
 export default function CartPage() {
-  const [cart, setCart] = useState(null)
-  const [subtotal, setSubtotal] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [err, setErr] = useState('')
-  const [placing, setPlacing] = useState(false)
-  const [placed, setPlaced] = useState(null)
-  const { setCart: setSharedCart, refreshCart } = useSession()
-  const confirm = useConfirm()
-
+  const dispatch = useAppDispatch();
+  const confirm = useConfirm();
+  const items = useAppSelector((state) => state.cart.items);
+  const subtotal = useAppSelector((state) => state.cart.subtotal);
+  const cartStatus = useAppSelector((state) => state.cart.status);
+  const [err, setErr] = useState('');
+  const [placing, setPlacing] = useState(false);
+  const [placed, setPlaced] = useState(null);
   const [addr, setAddr] = useState({
-    fullName: '', phone: '', line1: '', line2: '', city: '', state: '', postalCode: '', country: 'US'
-  })
+    fullName: '',
+    phone: '',
+    line1: '',
+    line2: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    country: 'US',
+  });
 
-  async function load() {
-    setLoading(true); setErr('')
+  useEffect(() => {
+    dispatch(fetchCart());
+  }, [dispatch]);
+
+  const loading = cartStatus === 'loading';
+
+  const onChangeAddress = (field, value) => {
+    setAddr((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const updateQty = async (productId, qty) => {
     try {
-      const { cart, subtotal } = await api.get('/cart')
-      setCart(cart); setSubtotal(subtotal)
-      setSharedCart(cart)
-    } catch (e) {
-      const message = e.message || 'Failed to load cart'
-      setErr(message)
-      notify.error(message)
+      await dispatch(updateCartItemThunk({ productId, qty })).unwrap();
+    } catch (error) {
+      notify.error(error.message || 'Failed to update item');
     }
-    finally { setLoading(false) }
-  }
-  useEffect(() => { load() }, [])
+  };
+
+  const removeItem = async (productId) => {
+    try {
+      await dispatch(removeCartItemThunk({ productId })).unwrap();
+      notify.info('Item removed');
+    } catch (error) {
+      notify.error(error.message || 'Failed to remove item');
+    }
+  };
+
+  const clear = async () => {
+    const ok = await confirm('Clear cart?', { description: 'This action will remove all items from your bag.' });
+    if (!ok) return;
+    try {
+      await dispatch(clearCartThunk()).unwrap();
+      notify.info('Cart cleared');
+    } catch (error) {
+      notify.error(error.message || 'Failed to clear cart');
+    }
+  };
+
+  const placeOrder = async (event) => {
+    event.preventDefault();
+    if (!items.length) return;
+    setPlacing(true);
+    setErr('');
+    try {
+      const { order } = await api.post('/orders/checkout', {
+        shippingAddress: addr,
+        paymentMethod: 'cod',
+      });
+      setPlaced(order);
+      await dispatch(fetchCart());
+      notify.success('Order placed');
+    } catch (error) {
+      const message = error.message || 'Checkout failed';
+      setErr(message);
+      notify.error(message);
+    } finally {
+      setPlacing(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -65,84 +122,53 @@ export default function CartPage() {
           </div>
         </div>
       </div>
-    )
-  }
-
-  async function updateQty(productId, qty) {
-    try {
-      const { cart, subtotal } = await api.patch(`/cart/item/${productId}`, { qty })
-      setCart(cart); setSubtotal(subtotal)
-      setSharedCart(cart)
-    } catch (e) { notify.error(e.message || 'Failed to update item') }
-  }
-  async function removeItem(productId) {
-    try {
-      const { cart, subtotal } = await api.delete(`/cart/item/${productId}`)
-      setCart(cart); setSubtotal(subtotal)
-      setSharedCart(cart)
-      notify.info('Item removed')
-    } catch (e) { notify.error(e.message || 'Failed to remove item') }
-  }
-  async function clear() {
-    const ok = await confirm('Clear cart?', { description: 'This action will remove all items from your bag.' })
-    if (!ok) return
-    const { cart, subtotal } = await api.delete('/cart')
-    setCart(cart); setSubtotal(subtotal)
-    setSharedCart(cart)
-    notify.info('Cart cleared')
-  }
-  async function placeOrder(e) {
-    e.preventDefault()
-    setPlacing(true); setErr('')
-    try {
-      const { order } = await api.post('/orders/checkout', {
-        shippingAddress: addr,
-        paymentMethod: 'cod'
-      })
-      setPlaced(order)
-      await load()
-      refreshCart()
-      notify.success('Order placed')
-    } catch (e) {
-      const message = e.message || 'Checkout failed'
-      setErr(message)
-      notify.error(message)
-    }
-    finally { setPlacing(false) }
+    );
   }
 
   return (
     <div className="container py-10 space-y-6">
       <div className="flex items-end justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Your Cart</h1>
-        {cart?.items?.length ? <Button variant="outline" onClick={clear}>Clear cart</Button> : null}
+        {items.length ? (
+          <Button variant="outline" onClick={clear}>
+            Clear cart
+          </Button>
+        ) : null}
       </div>
 
       {err && <p className="text-sm text-red-600">{err}</p>}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>Items</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Items</CardTitle>
+          </CardHeader>
           <CardContent>
-            {!cart?.items?.length ? (
+            {!items.length ? (
               <p className="text-sm text-muted-foreground">Your cart is empty.</p>
             ) : (
               <div className="space-y-4">
-                {cart.items.map(it => (
+                {items.map((it) => (
                   <div key={String(it.product)} className="flex items-center gap-4">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={it.image || ''} alt="" className="h-16 w-16 rounded-md object-cover border" />
+                    <img
+                      src={it.image || ''}
+                      alt=""
+                      className="h-16 w-16 rounded-md object-cover border"
+                    />
                     <div className="flex-1">
                       <div className="font-medium">{it.title}</div>
                       <div className="text-sm text-muted-foreground">${Number(it.price).toFixed(2)}</div>
                     </div>
                     <input
-                      type="number" min={1}
+                      type="number"
+                      min={1}
                       value={it.qty}
                       onChange={(e) => updateQty(it.product, Math.max(1, Number(e.target.value)))}
                       className="h-9 w-20 rounded-md border bg-background px-2"
                     />
-                    <Button size="sm" variant="destructive" onClick={() => removeItem(it.product)}>Remove</Button>
+                    <Button size="sm" variant="destructive" onClick={() => removeItem(it.product)}>
+                      Remove
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -151,7 +177,9 @@ export default function CartPage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Summary</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Summary</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Subtotal</span>
@@ -172,28 +200,67 @@ export default function CartPage() {
 
             <form onSubmit={placeOrder} className="mt-4 space-y-2">
               <div className="text-sm font-medium">Shipping address</div>
-              <input className="h-9 w-full rounded-md border bg-background px-3" placeholder="Full name"
-                value={addr.fullName} onChange={e=>setAddr({...addr, fullName:e.target.value})} required />
-              <input className="h-9 w-full rounded-md border bg-background px-3" placeholder="Phone"
-                value={addr.phone} onChange={e=>setAddr({...addr, phone:e.target.value})} required />
-              <input className="h-9 w-full rounded-md border bg-background px-3" placeholder="Address line 1"
-                value={addr.line1} onChange={e=>setAddr({...addr, line1:e.target.value})} required />
-              <input className="h-9 w-full rounded-md border bg-background px-3" placeholder="Address line 2 (optional)"
-                value={addr.line2} onChange={e=>setAddr({...addr, line2:e.target.value})} />
+              <input
+                className="h-9 w-full rounded-md border bg-background px-3"
+                placeholder="Full name"
+                value={addr.fullName}
+                onChange={(e) => onChangeAddress('fullName', e.target.value)}
+                required
+              />
+              <input
+                className="h-9 w-full rounded-md border bg-background px-3"
+                placeholder="Phone"
+                value={addr.phone}
+                onChange={(e) => onChangeAddress('phone', e.target.value)}
+                required
+              />
+              <input
+                className="h-9 w-full rounded-md border bg-background px-3"
+                placeholder="Address line 1"
+                value={addr.line1}
+                onChange={(e) => onChangeAddress('line1', e.target.value)}
+                required
+              />
+              <input
+                className="h-9 w-full rounded-md border bg-background px-3"
+                placeholder="Address line 2 (optional)"
+                value={addr.line2}
+                onChange={(e) => onChangeAddress('line2', e.target.value)}
+              />
               <div className="grid grid-cols-2 gap-2">
-                <input className="h-9 rounded-md border bg-background px-3" placeholder="City"
-                  value={addr.city} onChange={e=>setAddr({...addr, city:e.target.value})} required />
-                <input className="h-9 rounded-md border bg-background px-3" placeholder="State/Province"
-                  value={addr.state} onChange={e=>setAddr({...addr, state:e.target.value})} required />
+                <input
+                  className="h-9 rounded-md border bg-background px-3"
+                  placeholder="City"
+                  value={addr.city}
+                  onChange={(e) => onChangeAddress('city', e.target.value)}
+                  required
+                />
+                <input
+                  className="h-9 rounded-md border bg-background px-3"
+                  placeholder="State/Province"
+                  value={addr.state}
+                  onChange={(e) => onChangeAddress('state', e.target.value)}
+                  required
+                />
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <input className="h-9 rounded-md border bg-background px-3" placeholder="Postal code"
-                  value={addr.postalCode} onChange={e=>setAddr({...addr, postalCode:e.target.value})} required />
-                <input className="h-9 rounded-md border bg-background px-3" placeholder="Country"
-                  value={addr.country} onChange={e=>setAddr({...addr, country:e.target.value})} required />
+                <input
+                  className="h-9 rounded-md border bg-background px-3"
+                  placeholder="Postal code"
+                  value={addr.postalCode}
+                  onChange={(e) => onChangeAddress('postalCode', e.target.value)}
+                  required
+                />
+                <input
+                  className="h-9 rounded-md border bg-background px-3"
+                  placeholder="Country"
+                  value={addr.country}
+                  onChange={(e) => onChangeAddress('country', e.target.value)}
+                  required
+                />
               </div>
 
-              <Button disabled={placing || !cart?.items?.length}>
+              <Button disabled={placing || !items.length}>
                 {placing ? 'Placing…' : 'Place order'}
               </Button>
               {err && <p className="text-sm text-red-600">{err}</p>}
@@ -207,6 +274,5 @@ export default function CartPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
-// Note: Checkout is simplified for demo purposes. In production, we will integrate a proper payment gateway.

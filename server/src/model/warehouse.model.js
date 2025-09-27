@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const warehouseSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true, unique: true },
+    name: { type: String, required: true, trim: true },
     code: { type: String, required: true, trim: true, unique: true },
     address: {
       line1: { type: String, default: '' },
@@ -17,12 +17,14 @@ const warehouseSchema = new mongoose.Schema(
       phone: { type: String, default: '' },
       email: { type: String, default: '' },
     },
-    isActive: { type: Boolean, default: true },
+    active: { type: Boolean, default: true },
+    isDefault: { type: Boolean, default: false },
     notes: { type: String, default: '' },
   },
   { timestamps: true }
 );
 
 warehouseSchema.index({ name: 'text', code: 'text' });
+warehouseSchema.index({ code: 1 }, { unique: true });
 
 export default mongoose.model('Warehouse', warehouseSchema);

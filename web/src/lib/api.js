@@ -1,22 +1,29 @@
-const origin = (import.meta.env?.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '');
-const BASE = `${origin}/api`;
+import axios from 'axios';
 
-async function req(path, opts = {}) {
-  const { body, headers, ...rest } = opts
-  const res = await fetch(`${BASE}${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(headers || {}) },
-    body: body ? JSON.stringify(body) : undefined,
-    ...rest,
-  })
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || `Request failed: ${res.status}`);
-  return data;
+const origin = (import.meta.env?.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '');
+
+export const http = axios.create({
+  baseURL: `${origin}/api`,
+  withCredentials: true,
+});
+
+http.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const message = error?.response?.data?.error || error.message || 'Request failed';
+    return Promise.reject(new Error(message));
+  }
+);
+
+function request(method, url, data, config = {}) {
+  return http({ method, url, data, ...config }).then((res) => res.data);
 }
 
 export const api = {
-  get: (p, options) => req(p, { ...(options || {}), method: 'GET' }),
-  post: (p, body, options) => req(p, { ...(options || {}), method: 'POST', body }),
-  patch: (p, body, options) => req(p, { ...(options || {}), method: 'PATCH', body }),
-  delete: (p, options) => req(p, { ...(options || {}), method: 'DELETE' })
+  get: (url, config) => request('get', url, undefined, config),
+  post: (url, data, config) => request('post', url, data, config),
+  patch: (url, data, config) => request('patch', url, data, config),
+  put: (url, data, config) => request('put', url, data, config),
+  delete: (url, config) => request('delete', url, undefined, config),
+  del: (url, config) => request('delete', url, undefined, config),
 };

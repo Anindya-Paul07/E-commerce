@@ -2,6 +2,7 @@ import { ENV } from './config/env.js';
 import { connectDB } from './config/db.js';
 import app from './app.js';
 import { logger } from './lib/logger.js';
+import { scheduleLowStockLogger } from './lib/low-stock.logger.js';
 
 async function bootstrap() {
   try {
@@ -9,6 +10,8 @@ async function bootstrap() {
     const server = app.listen(ENV.PORT, () => {
       logger.info({ port: ENV.PORT }, 'API listening');
     });
+
+    scheduleLowStockLogger();
 
     const shutdown = async (error) => {
       if (error) logger.error(error, 'Fatal error, shutting down');

@@ -2,6 +2,7 @@ import Order from '../model/order.model.js';
 import Cart from '../model/cart.model.js';
 import { queueFulfillmentForOrder } from '../lib/fulfillment.js';
 import { logger } from '../lib/logger.js';
+import { commitForOrder, releaseForCart } from './inventory.controller.js';
 
 function pad(n, w=5){ return String(n).padStart(w,'0'); }
 function orderNumber() {
@@ -63,11 +64,27 @@ export async function checkout(req, res, next) {
       },
     });
 
+    try {
+      for (const line of cart.items) {
+        await commitForOrder({ orderId: order._id, productId: line.product, qty: line.qty });
+      }
+    } catch (error) {
+      const releases = cart.items.map((line) =>
+        releaseForCart({ userId: req.user._id, productId: line.product, qty: line.qty, cartId: cart._id })
+      );
+      await Promise.allSettled(releases);
+      await Order.findByIdAndUpdate(order._id, {
+        status: 'canceled',
+        notes: `Auto-canceled: ${error.message}`,
+      });
+      logger.warn({ orderId: order._id, error: error.message }, 'Order canceled during stock commit');
+      return res.status(409).json({ error: 'Insufficient stock during commit', detail: error.message });
+    }
+
     queueFulfillmentForOrder(order).catch((err) => {
       logger.error({ err, orderId: order._id }, 'Failed to queue fulfillment tasks');
     });
 
-    // clear cart
     cart.items = [];
     await cart.save();
 
