@@ -3,15 +3,18 @@ import { connectDB } from './config/db.js';
 import app from './app.js';
 import { logger } from './lib/logger.js';
 import { scheduleLowStockLogger } from './lib/low-stock.logger.js';
+import { ensureDefaultWarehouse } from './lib/warehouse.utils.js';
 
 async function bootstrap() {
   try {
     await connectDB();
+    await ensureDefaultWarehouse();
+
     const server = app.listen(ENV.PORT, () => {
       logger.info({ port: ENV.PORT }, 'API listening');
     });
 
-    scheduleLowStockLogger();
+    scheduleLowStockLogger({ intervalMs: 10 * 60 * 1000, defaultThreshold: 5 });
 
     const shutdown = async (error) => {
       if (error) logger.error(error, 'Fatal error, shutting down');

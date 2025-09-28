@@ -4,6 +4,7 @@ import App from './App'
 import './index.css'
 import { Provider } from 'react-redux'
 import { ConfirmProvider } from '@/context/ConfirmContext'
+import { ThemeProvider } from '@/context/ThemeContext'
 import { store } from '@/store'
 import { fetchSession } from '@/store/slices/sessionSlice'
 import { fetchCart } from '@/store/slices/cartSlice'
@@ -21,10 +22,12 @@ store.dispatch(fetchSession())
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <Provider store={store}>
-      <ConfirmProvider>
-        <Toaster richColors position="top-right" theme="light" closeButton />
-        <App />
-      </ConfirmProvider>
+      <ThemeProvider>
+        <ConfirmProvider>
+          <Toaster richColors position="top-right" theme="light" closeButton />
+          <App />
+        </ConfirmProvider>
+      </ThemeProvider>
     </Provider>
   </React.StrictMode>
 )

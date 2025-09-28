@@ -23,6 +23,9 @@ import adminSellerRoutes from './router/admin-seller.route.js';
 import subscriptionPlanRoutes from './router/subscription-plan.route.js';
 import adminSubscriptionRoutes from './router/admin-subscription.route.js';
 import adminFulfillmentRoutes from './router/admin-fulfillment.route.js';
+import adminUserRoutes from './router/admin-user.route.js';
+import adminCatalogRoutes from './router/admin-catalog.route.js';
+import catalogRoutes from './router/catalog.route.js';
 
 const app = express();
 
@@ -54,6 +57,9 @@ app.use('/api/admin/sellers', adminSellerRoutes);
 app.use('/api/subscription-plans', subscriptionPlanRoutes);
 app.use('/api/admin/subscriptions', adminSubscriptionRoutes);
 app.use('/api/admin/fulfillment-tasks', adminFulfillmentRoutes);
+app.use('/api/admin/users', adminUserRoutes);
+app.use('/api/admin/catalog', adminCatalogRoutes);
+app.use('/api/catalog', catalogRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

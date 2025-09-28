@@ -38,7 +38,10 @@ const fulfillmentTaskSchema = new mongoose.Schema(
   {
     order: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', required: true, index: true },
     orderItemIndex: { type: Number },
-    product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+    product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+    listing: { type: mongoose.Schema.Types.ObjectId, ref: 'SellerListing' },
+    catalogVariant: { type: mongoose.Schema.Types.ObjectId, ref: 'CatalogVariant' },
+    sku: { type: String, trim: true },
     seller: { type: mongoose.Schema.Types.ObjectId, ref: 'Seller', index: true },
     shop: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop' },
     warehouse: { type: mongoose.Schema.Types.ObjectId, ref: 'Warehouse', index: true },
@@ -65,5 +68,6 @@ const fulfillmentTaskSchema = new mongoose.Schema(
 
 fulfillmentTaskSchema.index({ warehouse: 1, status: 1, priority: -1 });
 fulfillmentTaskSchema.index({ seller: 1, status: 1 });
+fulfillmentTaskSchema.index({ listing: 1, status: 1 });
 
 export default mongoose.model('FulfillmentTask', fulfillmentTaskSchema);

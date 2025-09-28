@@ -15,10 +15,15 @@ const fulfillmentEventSchema = new mongoose.Schema(
 
 const orderItemSchema = new mongoose.Schema(
   {
-    product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+    product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+    listing: { type: mongoose.Schema.Types.ObjectId, ref: 'SellerListing' },
+    catalogProduct: { type: mongoose.Schema.Types.ObjectId, ref: 'CatalogProduct' },
+    catalogVariant: { type: mongoose.Schema.Types.ObjectId, ref: 'CatalogVariant' },
     seller: { type: mongoose.Schema.Types.ObjectId, ref: 'Seller', index: true },
     shop: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop' },
     title: { type: String, required: true },
+    variantTitle: { type: String, default: '' },
+    sku: { type: String, default: '' },
     price: { type: Number, required: true, min: 0 },
     image: { type: String, default: '' },
     qty: { type: Number, required: true, min: 1 },

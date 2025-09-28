@@ -13,6 +13,8 @@ export default function Navbar() {
   const user = useAppSelector((state) => state.session.user)
   const sessionStatus = useAppSelector((state) => state.session.status)
   const cartCount = useAppSelector((state) => state.cart.items.reduce((sum, item) => sum + (item.qty || 0), 0))
+  const roles = user?.roles || []
+  const isSeller = roles.includes('seller') || roles.includes('seller_admin')
 
   async function handleLogout() {
     await dispatch(logoutThunk())
@@ -62,6 +64,11 @@ export default function Navbar() {
           ) : (
             <>
               <span className="text-sm text-muted-foreground">Hi, {greeting}</span>
+              <Button asChild variant="ghost">
+                <Link to={isSeller ? '/seller/listings' : '/seller/apply'}>
+                  {isSeller ? 'Seller hub' : 'Become a seller'}
+                </Link>
+              </Button>
               <Button variant="outline" onClick={handleLogout}>Logout</Button>
             </>
           )}

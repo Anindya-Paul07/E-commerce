@@ -1,6 +1,7 @@
 import Seller from '../model/seller.model.js';
 import Shop from '../model/shop.model.js';
 import User from '../model/user.model.js';
+import { sanitizeRoles } from '../lib/roles.js';
 
 function slugify(input) {
   return input
@@ -162,7 +163,7 @@ export async function submitSellerApplication(req, res, next) {
 
     const user = await User.findById(req.user._id);
     if (user) {
-      if (!user.roles.includes('seller')) user.roles.push('seller');
+      user.roles = sanitizeRoles([...user.roles, 'seller']);
       user.sellerProfile = seller._id;
       await user.save();
     }
@@ -175,4 +176,4 @@ export async function submitSellerApplication(req, res, next) {
     next(error);
   }
 }
-*** End of File
+

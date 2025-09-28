@@ -8,8 +8,12 @@ const stockMoveSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    variant: { type: mongoose.Schema.Types.ObjectId, ref: 'Variant', required: true, index: true },
+    variant: { type: mongoose.Schema.Types.ObjectId, ref: 'Variant', index: true },
     product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', index: true },
+    catalogVariant: { type: mongoose.Schema.Types.ObjectId, ref: 'CatalogVariant', index: true },
+    listing: { type: mongoose.Schema.Types.ObjectId, ref: 'SellerListing', index: true },
+    seller: { type: mongoose.Schema.Types.ObjectId, ref: 'Seller', index: true },
+    sku: { type: String, trim: true },
     qty: { type: Number, required: true },
     fromWarehouse: { type: mongoose.Schema.Types.ObjectId, ref: 'Warehouse' },
     toWarehouse: { type: mongoose.Schema.Types.ObjectId, ref: 'Warehouse' },
@@ -28,5 +32,7 @@ const stockMoveSchema = new mongoose.Schema(
 
 stockMoveSchema.index({ createdAt: -1 });
 stockMoveSchema.index({ variant: 1, createdAt: -1 });
+stockMoveSchema.index({ catalogVariant: 1, createdAt: -1 });
+stockMoveSchema.index({ listing: 1, createdAt: -1 });
 
 export default mongoose.model('StockMove', stockMoveSchema);

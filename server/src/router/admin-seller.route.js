@@ -12,7 +12,7 @@ import {
 const router = Router();
 
 router.use(passport.authenticate('jwt', { session: false }));
-router.use(rolesRequired(['admin']));
+router.use(rolesRequired(['admin', 'seller_admin']));
 
 router.get('/', adminListSellers);
 router.get('/:idOrSlug', adminGetSeller);

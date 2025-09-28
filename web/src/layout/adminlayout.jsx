@@ -1,20 +1,30 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Package, Tag, ShoppingCart, Building2, Boxes, BadgeCheck } from 'lucide-react'
+import { LayoutDashboard, Package, Tag, ShoppingCart, Building2, Boxes, BadgeCheck, ShieldCheck, Layers } from 'lucide-react'
 import AdminGate from '@/components/AdminGate'
+import { useAppSelector } from '@/store/hooks'
 
-const nav = [
+const NAV_ITEMS = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/admin/products', label: 'Products', icon: Package },
-  { to: '/admin/brands', label: 'Brands', icon: BadgeCheck },
-  { to: '/admin/categories', label: 'Categories', icon: Tag },
-  { to: '/admin/orders', label: 'Orders', icon: ShoppingCart },
-  { to: '/admin/warehouses', label: 'Warehouses', icon: Building2 },
-  { to: '/admin/inventory', label: 'Inventory', icon: Boxes },
+  { to: '/admin/catalog', label: 'Catalog', icon: Layers, roles: ['admin', 'seller_admin', 'superadmin'] },
+  { to: '/admin/products', label: 'Legacy products', icon: Package, roles: ['admin', 'seller_admin', 'superadmin'] },
+  { to: '/admin/brands', label: 'Brands', icon: BadgeCheck, roles: ['admin', 'seller_admin', 'superadmin'] },
+  { to: '/admin/categories', label: 'Categories', icon: Tag, roles: ['admin', 'seller_admin', 'superadmin'] },
+  { to: '/admin/orders', label: 'Orders', icon: ShoppingCart, roles: ['admin', 'seller_admin', 'superadmin'] },
+  { to: '/admin/warehouses', label: 'Warehouses', icon: Building2, roles: ['admin', 'seller_admin', 'superadmin'] },
+  { to: '/admin/inventory', label: 'Inventory', icon: Boxes, roles: ['admin', 'seller_admin', 'superadmin'] },
+  { to: '/admin/users', label: 'Users', icon: ShieldCheck, roles: ['superadmin'] },
   // { to: '/admin/customers', label: 'Customers', icon: Users, disabled: true },
   // { to: '/admin/settings', label: 'Settings', icon: Settings, disabled: true },
 ]
 
 export default function AdminLayout() {
+  const roles = useAppSelector((state) => state.session.user?.roles || [])
+  const nav = NAV_ITEMS.filter((item) => {
+    if (!item.roles) return true
+    if (roles.includes('superadmin')) return true
+    return item.roles.some((role) => roles.includes(role))
+  })
+
   return (
     <AdminGate>
       <div className="min-h-screen bg-background lg:grid lg:grid-cols-[260px_1fr]">

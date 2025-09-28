@@ -4,11 +4,15 @@
   "main": "index.js",
   "type":"module",
   "scripts": {
-  "dev": "nodemon src/server.js",
-  "start": "node src/server.js",
-  "seed:Admin": "node src/seedAdmin.mjs"
-
-},
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "seed:Admin": "node src/seedAdmin.mjs",
+    "seed:data": "node src/seedDemo.mjs",
+    "migrate:catalog": "node src/migrations/migrateLegacyCatalog.mjs",
+    "test:catalog:smoke": "node src/tests/catalog-models.smoke.mjs",
+    "test:migrate:smoke": "node src/tests/migrate-legacy.smoke.mjs",
+    "test": "vitest --run"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -31,7 +35,10 @@
     "passport-local": "^1.0.0"
   },
   "devDependencies": {
+    "mongodb-memory-server": "^10.1.4",
     "nodemon": "^3.1.10",
-    "pino-pretty": "^11.3.0"
+    "pino-pretty": "^11.3.0",
+    "supertest": "^7.1.0",
+    "vitest": "^1.6.0"
   }
 }

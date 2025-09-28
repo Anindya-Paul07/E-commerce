@@ -10,19 +10,24 @@ export async function queueFulfillmentForOrder(order) {
     .map((item, index) => {
       const fulfillmentMode = item.metadata?.fulfillmentMode || 'platform';
       if (fulfillmentMode !== 'platform') return null;
+      if (!item.product && !item.listing) return null;
       return {
         order: order._id,
         orderItemIndex: index,
         product: item.product,
+        listing: item.listing,
+        catalogVariant: item.catalogVariant,
         seller: item.seller,
         shop: item.shop,
         warehouse: item.warehouse,
+        sku: item.sku,
         type: 'pick',
         status: 'pending',
         priority: order.compliance?.riskScore ? Math.round(order.compliance.riskScore) : 0,
         metadata: {
           qty: item.qty,
           title: item.title,
+          variantTitle: item.variantTitle,
         },
       };
     })

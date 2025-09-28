@@ -31,7 +31,7 @@ async function main() {
       name,
       email: email.toLowerCase(),
       passwordHash,
-      roles: ['admin'],
+    roles: ['superadmin'],
     });
     console.log('✅ Admin created:', email, 'password:', password);
   }

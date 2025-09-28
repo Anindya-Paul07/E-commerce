@@ -4,26 +4,32 @@ import { api } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Badge from '@/components/ui/badge'
-import { notify } from '@/lib/notify'
-import { useAppDispatch } from '@/store/hooks'
-import { addToCart as addToCartThunk } from '@/store/slices/cartSlice'
-
 export default function CategoryPage() {
   const { slug } = useParams()
   const [category, setCategory] = useState(null)
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
-  const dispatch = useAppDispatch()
 
   useEffect(() => {
     let active = true
     setLoading(true); setErr('')
-    // You can use either categories/:slug/products OR products?category=:slug
-    api.get(`/categories/${slug}/products?limit=24`)
-      .then(({ items, category }) => { if (active) { setItems(items || []); setCategory(category) } })
+    api.get(`/catalog/listings?limit=24&category=${slug}`)
+      .then((data) => {
+        if (!active) return
+        setItems(data.items || [])
+      })
       .catch((e) => { if (active) setErr(e.message || 'Failed to load') })
       .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [slug])
+
+  useEffect(() => {
+    let active = true
+    setCategory(null)
+    api.get(`/categories/${slug}`)
+      .then(({ category: details }) => { if (active) setCategory(details) })
+      .catch(() => {})
     return () => { active = false }
   }, [slug])
 
@@ -50,15 +56,6 @@ export default function CategoryPage() {
   }
   if (err) return <div className="container py-10 text-red-600">{err}</div>
 
-  async function addToCart(productId) {
-    try {
-      await dispatch(addToCartThunk({ productId, qty: 1 }))
-      notify.success('Added to cart')
-    } catch (e) {
-      notify.error(e.message || 'Failed to add to cart')
-    }
-  }
-
   return (
     <div className="container space-y-6 py-10">
       <div>
@@ -67,29 +64,44 @@ export default function CategoryPage() {
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {items.map(p => (
-          <Card key={p._id} className="group">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="truncate">
-                  <Link to={`/product/${p.slug}`} className="hover:underline">{p.title}</Link>
-                </CardTitle>
-                {p.tags?.[0] && <Badge>{p.tags[0]}</Badge>}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Link to={`/product/${p.slug}`}>
-                {p.images?.[0]
-                  ? <img src={p.images[0]} alt={p.title} className="aspect-square w-full rounded-md object-cover bg-muted/40" />
-                  : <div className="aspect-square w-full rounded-md bg-muted/60" />}
-              </Link>
-              <div className="mt-3 flex items-center justify-between">
-                <span className="font-semibold">${Number(p.price).toFixed(2)}</span>
-                <Button size="sm" onClick={() => addToCart(p._id)}>Add to cart</Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {items.map((listing) => {
+          const product = listing.catalogProduct || {}
+          const offer = listing.offers?.[0]
+          return (
+            <Card key={listing._id} className="group">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="truncate">
+                    <Link to={`/product/${product.slug}`} className="hover:underline">{product.name}</Link>
+                  </CardTitle>
+                  {product.brand && <Badge>{product.brand}</Badge>}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Link to={`/product/${product.slug}`}>
+                  {product.images?.[0]
+                    ? (
+                      <img
+                        src={product.images[0]}
+                        alt={product.name}
+                        className="aspect-square w-full rounded-md object-cover bg-muted/40"
+                      />
+                    ) : (
+                      <div className="aspect-square w-full rounded-md bg-muted/60" />
+                    )}
+                </Link>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="font-semibold">
+                    {offer?.price != null ? `$${Number(offer.price).toFixed(2)}` : 'See pricing'}
+                  </span>
+                  <Button size="sm" asChild>
+                    <Link to={`/product/${product.slug}`}>View</Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       {items.length === 0 && (
