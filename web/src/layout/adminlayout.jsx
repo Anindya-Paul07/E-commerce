@@ -1,9 +1,13 @@
 import { NavLink, Outlet } from 'react-router-dom'
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { LayoutDashboard, Package, Tag, ShoppingCart, Users, Settings, WarehouseIcon, Store } from 'lucide-react'
 =======
 import { LayoutDashboard, Package, Tag, ShoppingCart, Building2, Boxes, BadgeCheck } from 'lucide-react'
 >>>>>>> 0eec417 (added moderinazation.)
+=======
+import { LayoutDashboard, Package, Tag, ShoppingCart, Building2, Boxes, BadgeCheck, Sparkles } from 'lucide-react'
+>>>>>>> 3edd775 (added backend controllers)
 import AdminGate from '@/components/AdminGate'
 
 const nav = [
@@ -12,9 +16,15 @@ const nav = [
   { to: '/admin/brands', label: 'Brands', icon: BadgeCheck },
   { to: '/admin/categories', label: 'Categories', icon: Tag },
   { to: '/admin/orders', label: 'Orders', icon: ShoppingCart },
+<<<<<<< HEAD
   { to: '/admin/inventory', label: 'Inventory', icon: WarehouseIcon},
   { to: '/admin/warehouses', label: 'Warehouses', icon: WarehouseIcon },
   { to: '/admin/brands', label: 'Brands', icon: Store }
+=======
+  { to: '/admin/warehouses', label: 'Warehouses', icon: Building2 },
+  { to: '/admin/inventory', label: 'Inventory', icon: Boxes },
+  { to: '/admin/shop', label: 'Shop CMS', icon: Sparkles },
+>>>>>>> 3edd775 (added backend controllers)
   // { to: '/admin/customers', label: 'Customers', icon: Users, disabled: true },
   // { to: '/admin/settings', label: 'Settings', icon: Settings, disabled: true },
 ]

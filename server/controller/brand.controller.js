@@ -1,5 +1,10 @@
 import mongoose from 'mongoose';
+<<<<<<< HEAD:server/controller/brand.controller.js
 import Brand from '../model/brands.model.js';
+=======
+import Brand from '../model/brand.model.js';
+import { toPublicUrl, cleanupReplacedUploads, removeUploads } from '../lib/upload.js';
+>>>>>>> 3edd775 (added backend controllers):server/src/controller/brand.controller.js
 
 function slugify(s) {
   return s
@@ -9,6 +14,19 @@ function slugify(s) {
     .replace(/&/g, '-and-')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+function normalizeLogo(value) {
+  const sanitize = (input) => {
+    const str = String(input ?? '').trim();
+    if (['null', 'undefined'].includes(str.toLowerCase())) return '';
+    return str;
+  };
+
+  if (Array.isArray(value)) {
+    return value.map(sanitize).find(Boolean) || '';
+  }
+  return sanitize(value);
 }
 
 export async function list(req, res, next) {
@@ -49,8 +67,23 @@ export async function getOne(req, res, next) {
 
 export async function create(req, res, next) {
   try {
+<<<<<<< HEAD:server/controller/brand.controller.js
     const { name, slug, description = '', logo = '', website = '', status = 'active', sortOrder = 0 } = req.body || {};
+=======
+    const {
+      name,
+      slug,
+      description = '',
+      logo: logoInput,
+      website = '',
+      status = 'active',
+      sortOrder = 0,
+    } = req.body || {};
+>>>>>>> 3edd775 (added backend controllers):server/src/controller/brand.controller.js
     if (!name) return res.status(400).json({ error: 'name is required' });
+
+    const uploadedLogo = req.file ? toPublicUrl(req.file) : null;
+    const logo = uploadedLogo || normalizeLogo(logoInput);
 
     const data = { name, description, logo, website, status, sortOrder };
     data.slug = slug ? slugify(slug) : slugify(name);
@@ -69,6 +102,14 @@ export async function update(req, res, next) {
     const { id } = req.params;
     const body = { ...req.body };
 
+    if (req.file) {
+      body.logo = toPublicUrl(req.file);
+    } else if (Object.prototype.hasOwnProperty.call(body, 'logo')) {
+      body.logo = normalizeLogo(body.logo);
+    } else {
+      delete body.logo;
+    }
+
     if (body.slug) body.slug = slugify(body.slug);
     if (!body.slug && body.name) body.slug = slugify(body.name);
 
@@ -77,8 +118,20 @@ export async function update(req, res, next) {
       if (dup) return res.status(400).json({ error: 'slug already exists' });
     }
 
-    const doc = await Brand.findByIdAndUpdate(id, body, { new: true });
+    const doc = await Brand.findById(id);
     if (!doc) return res.status(404).json({ error: 'Brand not found' });
+
+    const previousLogo = doc.logo;
+
+    Object.entries(body).forEach(([key, value]) => {
+      if (value === undefined) delete body[key];
+    });
+
+    doc.set(body);
+    await doc.save();
+
+    await cleanupReplacedUploads(previousLogo, doc.logo);
+
     res.json({ brand: doc });
   } catch (e) { next(e); }
 }
@@ -88,6 +141,7 @@ export async function removeOne(req, res, next) {
     const { id } = req.params;
     const doc = await Brand.findByIdAndDelete(id);
     if (!doc) return res.status(404).json({ error: 'Brand not found' });
+    await removeUploads(doc.logo);
     res.json({ ok: true });
   } catch (e) { next(e); }
 }

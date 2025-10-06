@@ -7,6 +7,7 @@ import { ENV } from './config/env.js';
 import { initPassport } from './passport/index.js';
 import { notFound, errorHandler } from './middlewares/error.js';
 import { httpLogger } from './lib/logger.js';
+import { uploadDir } from './lib/upload.js';
 
 import authRoutes from './router/auth.route.js';
 import productRoutes from './router/product.route.js';
@@ -27,6 +28,7 @@ import adminSellerRoutes from './router/admin-seller.route.js';
 import subscriptionPlanRoutes from './router/subscription-plan.route.js';
 import adminSubscriptionRoutes from './router/admin-subscription.route.js';
 import adminFulfillmentRoutes from './router/admin-fulfillment.route.js';
+import catalogProductRoutes from './router/catalog-product.route.js';
 
 const app = express();
 
@@ -37,6 +39,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(cors({ origin: ENV.CLIENT_ORIGIN, credentials: true }));
 app.use('/api', apiLimiter);
+app.use('/uploads', express.static(uploadDir));
 
 const passport = initPassport();
 app.use(passport.initialize());
@@ -58,6 +61,7 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/brands', brandRoutes);
 app.use('/api/sellers', sellerRoutes);
 app.use('/api/admin/sellers', adminSellerRoutes);
+app.use('/api/catalog-products', catalogProductRoutes);
 app.use('/api/subscription-plans', subscriptionPlanRoutes);
 app.use('/api/admin/subscriptions', adminSubscriptionRoutes);
 app.use('/api/admin/fulfillment-tasks', adminFulfillmentRoutes);

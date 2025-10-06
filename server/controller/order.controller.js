@@ -25,11 +25,12 @@ export async function checkout(req, res, next) {
     const total = subtotal + shipping + tax;
 
     const now = new Date();
-    const items = cart.items.map((i) => {
-      const commissionRate = typeof i.commissionRate === 'number' ? i.commissionRate : 0;
-      const commissionAmount = Number((commissionRate * i.price * i.qty).toFixed(2));
+    const items = cart.items.map((itemDoc) => {
+      const snapshot = itemDoc.toObject();
+      const commissionRate = typeof snapshot.commissionRate === 'number' ? snapshot.commissionRate : 0;
+      const commissionAmount = Number((commissionRate * snapshot.price * snapshot.qty).toFixed(2));
       return {
-        ...i.toObject(),
+        ...snapshot,
         commissionRate,
         commissionAmount,
         fulfillmentStatus: 'pending',
@@ -68,12 +69,36 @@ export async function checkout(req, res, next) {
 
     try {
       for (const line of cart.items) {
-        await commitForOrder({ orderId: order._id, productId: line.product, qty: line.qty });
+        const payload = {
+          orderId: order._id,
+          qty: line.qty,
+        };
+        if (line.listing && line.catalogVariant) {
+          payload.listingId = line.listing;
+          payload.catalogVariantId = line.catalogVariant;
+        } else if (line.product) {
+          payload.productId = line.product;
+        }
+        await commitForOrder(payload);
       }
     } catch (error) {
-      const releases = cart.items.map((line) =>
-        releaseForCart({ userId: req.user._id, productId: line.product, qty: line.qty, cartId: cart._id })
-      );
+      const releases = cart.items.map((line) => {
+        if (line.listing && line.catalogVariant) {
+          return releaseForCart({
+            userId: req.user._id,
+            listingId: line.listing,
+            catalogVariantId: line.catalogVariant,
+            qty: line.qty,
+            cartId: cart._id,
+          });
+        }
+        return releaseForCart({
+          userId: req.user._id,
+          productId: line.product,
+          qty: line.qty,
+          cartId: cart._id,
+        });
+      });
       await Promise.allSettled(releases);
       await Order.findByIdAndUpdate(order._id, {
         status: 'canceled',

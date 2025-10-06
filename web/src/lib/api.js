@@ -25,9 +25,25 @@ async function req(path, opts = {}) {
   return data
 }
 
+function withFormConfig(config = {}) {
+  return { ...config };
+}
+
 export const api = {
+<<<<<<< HEAD
   get: (p) => req(p),
   post: (p, body) => req(p, { method: 'POST', body }),
   patch: (p, body) => req(p, { method: 'PATCH', body }),
   delete: (p) => req(p, { method: 'DELETE' }),
 }
+=======
+  get: (url, config) => request('get', url, undefined, config),
+  post: (url, data, config) => request('post', url, data, config),
+  patch: (url, data, config) => request('patch', url, data, config),
+  put: (url, data, config) => request('put', url, data, config),
+  delete: (url, config) => request('delete', url, undefined, config),
+  del: (url, config) => request('delete', url, undefined, config),
+  postForm: (url, data, config) => request('post', url, data, withFormConfig(config)),
+  patchForm: (url, data, config) => request('patch', url, data, withFormConfig(config)),
+};
+>>>>>>> 3edd775 (added backend controllers)

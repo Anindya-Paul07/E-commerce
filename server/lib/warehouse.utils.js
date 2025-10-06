@@ -22,3 +22,7 @@ export async function ensureDefaultWarehouse() {
 export function getDefaultWarehouseIdSync() {
   return DEFAULT_WAREHOUSE_ID;
 }
+
+export function resetDefaultWarehouseCache() {
+  DEFAULT_WAREHOUSE_ID = null;
+}
