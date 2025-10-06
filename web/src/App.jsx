@@ -15,6 +15,7 @@ import AdminBrands from '@/pages/admin/brand'
 import AdminOrdersPage from '@/pages/admin/order'
 import AdminWarehouses from '@/pages/admin/warehouse'
 import AdminInventory from '@/pages/admin/inventory'
+import AdminShop from '@/pages/admin/shop'
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="/admin/orders" element={<AdminOrdersPage />} />
           <Route path="/admin/warehouses" element={<AdminWarehouses />} />
           <Route path="/admin/inventory" element={<AdminInventory />} />
+          <Route path="/admin/shop" element={<AdminShop />} />
         </Route>
       </Routes>
     </BrowserRouter>

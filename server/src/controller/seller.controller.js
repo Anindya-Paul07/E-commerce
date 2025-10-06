@@ -1,6 +1,7 @@
 import Seller from '../model/seller.model.js';
 import Shop from '../model/shop.model.js';
 import User from '../model/user.model.js';
+import { toPublicUrl, cleanupReplacedUploads } from '../lib/upload.js';
 
 function slugify(input) {
   return input
@@ -59,6 +60,29 @@ function mergeSection(currentSection = {}, nextSection = {}) {
   return { ...base, ...nextSection };
 }
 
+function parseJSONField(value, fallback) {
+  if (value == null) return fallback;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return fallback;
+    try {
+      return JSON.parse(trimmed);
+    } catch (error) {
+      return fallback;
+    }
+  }
+  if (typeof value === 'object') return value;
+  return fallback;
+}
+
+function normalizeMediaInput(value) {
+  if (value == null) return '';
+  const trimmed = String(value).trim();
+  if (!trimmed) return '';
+  if (['null', 'undefined'].includes(trimmed.toLowerCase())) return '';
+  return trimmed;
+}
+
 export async function getMySellerProfile(req, res, next) {
   try {
     const seller = await Seller.findOne({ user: req.user._id })
@@ -75,17 +99,17 @@ export async function getMySellerProfile(req, res, next) {
 
 export async function submitSellerApplication(req, res, next) {
   try {
-    const {
-      displayName,
-      legalName,
-      contact = {},
-      warehousePreferences = {},
-      kyc = {},
-      payout = {},
-      documents = [],
-      notes,
-      shop = {},
-    } = req.body || {};
+    const body = req.body || {};
+
+    const displayName = body.displayName;
+    const legalName = body.legalName;
+    const contact = parseJSONField(body.contact, body.contact || {});
+    const warehousePreferences = parseJSONField(body.warehousePreferences, body.warehousePreferences || {});
+    const kyc = parseJSONField(body.kyc, body.kyc || {});
+    const payout = parseJSONField(body.payout, body.payout || {});
+    const documents = parseJSONField(body.documents, body.documents || []);
+    const shopInput = parseJSONField(body.shop, body.shop || {});
+    const notes = body.notes;
 
     if (!displayName) return res.status(400).json({ error: 'displayName is required' });
 
@@ -128,14 +152,46 @@ export async function submitSellerApplication(req, res, next) {
     // Ensure a shop shell exists for them
     let shopDoc = await Shop.findOne({ seller: seller._id });
     if (!shopDoc) {
-      const base = shop.name ? slugify(shop.name) : seller.slug;
+      const base = shopInput.name ? slugify(shopInput.name) : seller.slug;
       const uniqueSlug = await ensureUniqueShopSlug(base);
       shopDoc = await Shop.create({
         seller: seller._id,
-        name: shop.name || displayName,
+        name: shopInput.name || displayName,
         slug: uniqueSlug || `${seller.slug}-shop`,
         status: 'draft',
       });
+    }
+
+    const previousLogo = shopDoc.logoUrl;
+    const previousCover = shopDoc.coverImageUrl;
+    const previousHero = shopDoc.hero?.url;
+
+    const logoUpload = req.files?.shopLogo?.[0];
+    const coverUpload = req.files?.shopCover?.[0];
+    const heroUpload = req.files?.shopHero?.[0];
+
+    const shop = { ...shopInput };
+
+    if (logoUpload) {
+      shop.logoUrl = toPublicUrl(logoUpload);
+    } else if (Object.prototype.hasOwnProperty.call(shop, 'logoUrl')) {
+      shop.logoUrl = normalizeMediaInput(shop.logoUrl);
+    }
+
+    if (coverUpload) {
+      shop.coverImageUrl = toPublicUrl(coverUpload);
+    } else if (Object.prototype.hasOwnProperty.call(shop, 'coverImageUrl')) {
+      shop.coverImageUrl = normalizeMediaInput(shop.coverImageUrl);
+    }
+
+    if (shop.hero && typeof shop.hero === 'string') {
+      shop.hero = parseJSONField(shop.hero, {});
+    }
+
+    if (heroUpload) {
+      shop.hero = mergeSection(shop.hero, { type: 'image', url: toPublicUrl(heroUpload) });
+    } else if (shop.hero && Object.prototype.hasOwnProperty.call(shop.hero, 'url')) {
+      shop.hero.url = normalizeMediaInput(shop.hero.url);
     }
 
     if (shop && Object.keys(shop).length > 0) {
@@ -144,8 +200,8 @@ export async function submitSellerApplication(req, res, next) {
       if (shop.description !== undefined) shopDoc.description = shop.description;
       if (shop.status) shopDoc.status = shop.status;
       if (shop.hero) shopDoc.hero = mergeSection(shopDoc.hero, shop.hero);
-      if (shop.logoUrl !== undefined) shopDoc.logoUrl = shop.logoUrl;
-      if (shop.coverImageUrl !== undefined) shopDoc.coverImageUrl = shop.coverImageUrl;
+      if (Object.prototype.hasOwnProperty.call(shop, 'logoUrl')) shopDoc.logoUrl = shop.logoUrl;
+      if (Object.prototype.hasOwnProperty.call(shop, 'coverImageUrl')) shopDoc.coverImageUrl = shop.coverImageUrl;
       if (shop.theme) shopDoc.theme = mergeSection(shopDoc.theme, shop.theme);
       if (shop.seo) shopDoc.seo = mergeSection(shopDoc.seo, shop.seo);
       if (shop.featureFlags) shopDoc.featureFlags = mergeSection(shopDoc.featureFlags, shop.featureFlags);
@@ -159,6 +215,10 @@ export async function submitSellerApplication(req, res, next) {
       }
       await shopDoc.save();
     }
+
+    await cleanupReplacedUploads(previousLogo, shopDoc.logoUrl);
+    await cleanupReplacedUploads(previousCover, shopDoc.coverImageUrl);
+    await cleanupReplacedUploads(previousHero, shopDoc.hero?.url);
 
     const user = await User.findById(req.user._id);
     if (user) {
@@ -175,4 +235,3 @@ export async function submitSellerApplication(req, res, next) {
     next(error);
   }
 }
-*** End of File

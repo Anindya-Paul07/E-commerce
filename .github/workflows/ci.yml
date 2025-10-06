@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm install
+
+      - name: Run API tests
+        working-directory: server
+        env:
+          CI: true
+        run: npm test
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm install
+
+      - name: Run web lint
+        working-directory: web
+        env:
+          CI: true
+        run: npm run lint
+
+      - name: Run web unit tests
+        working-directory: web
+        env:
+          CI: true
+        run: npm run test

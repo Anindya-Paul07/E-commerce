@@ -2,12 +2,35 @@ import mongoose from 'mongoose';
 import Variant from '../model/variant.model.js';
 import InventoryItem from '../model/inventory-item.model.js';
 import StockMove from '../model/stock-move.model.js';
+import WarehouseStock from '../model/warehouse-stock.model.js';
+import SellerListing from '../model/seller-listing.model.js';
+import CatalogVariant from '../model/catalog-variant.model.js';
 import { ensureDefaultWarehouse } from '../lib/warehouse.utils.js';
 import Product from '../model/product.model.js';
 import Warehouse from '../model/warehouse.model.js';
 
 function skuFromSlug(slug) {
   return (slug || '').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+async function loadListingVariant(listingId, catalogVariantId) {
+  const listing = await SellerListing.findById(listingId).lean();
+  if (!listing) throw Object.assign(new Error('listing_not_found'), { statusCode: 404 });
+
+  const variantIdStr = catalogVariantId?.toString();
+  const offer = (listing.offers || []).find((entry) => entry?.variant?.toString() === variantIdStr);
+  if (!offer) {
+    throw Object.assign(new Error('variant_not_listed'), { statusCode: 400 });
+  }
+
+  const variant = await CatalogVariant.findById(catalogVariantId).lean();
+  if (!variant) throw Object.assign(new Error('catalog_variant_not_found'), { statusCode: 404 });
+
+  return { listing, variant, offer };
+}
+
+async function ensureWarehouseStock({ listingId, catalogVariantId, warehouseId }) {
+  return WarehouseStock.ensure({ listingId, catalogVariantId, warehouseId });
 }
 
 // Create/fetch a default variant for a product (one-variant products)
@@ -32,8 +55,33 @@ export async function ensureDefaultVariantForProduct(productId) {
 }
 
 // Increase on-hand (for initial product stock or receiving)
-export async function receiveStock({ productId, qty, reason = 'initial' }) {
+export async function receiveStock({ productId, listingId, catalogVariantId, qty, reason = 'initial', warehouseId }) {
   if (qty <= 0) return;
+
+  if (listingId && catalogVariantId) {
+    const { listing, variant } = await loadListingVariant(listingId, catalogVariantId);
+    const whId = warehouseId || (await ensureDefaultWarehouse());
+    const doc = await WarehouseStock.increaseOnHand({
+      listingId,
+      catalogVariantId,
+      warehouseId: whId,
+      qty,
+    });
+
+    await StockMove.create({
+      type: 'in',
+      listing: listingId,
+      catalogVariant: catalogVariantId,
+      seller: listing.seller,
+      sku: variant?.sku,
+      qty,
+      toWarehouse: whId,
+      reason,
+      snapshot: { qtyOnHand: doc.qtyOnHand, qtyReserved: doc.qtyReserved },
+    });
+    return doc;
+  }
+
   const whId = await ensureDefaultWarehouse();
   const variant = await ensureDefaultVariantForProduct(productId);
   const doc = await InventoryItem.increaseOnHand({ variantId: variant._id, warehouseId: whId, qty });
@@ -45,15 +93,53 @@ export async function receiveStock({ productId, qty, reason = 'initial' }) {
     qty,
     toWarehouse: whId,
     reason,
-    snapshot: { qtyOnHand: doc.qtyOnHand, qtyReserved: doc.qtyReserved }
+    snapshot: { qtyOnHand: doc.qtyOnHand, qtyReserved: doc.qtyReserved },
   });
+
+  return doc;
 }
 
 // Reserve stock for a cart
-export async function reserveForCart({ userId, productId, qty, cartId = null }) {
+export async function reserveForCart({ userId, productId, listingId, catalogVariantId, qty, cartId = null }) {
+  if (listingId && catalogVariantId) {
+    const { listing, variant } = await loadListingVariant(listingId, catalogVariantId);
+    const whId = await ensureDefaultWarehouse();
+    await ensureWarehouseStock({ listingId, catalogVariantId, warehouseId: whId });
+    let doc;
+    try {
+      doc = await WarehouseStock.reserve({ listingId, catalogVariantId, warehouseId: whId, qty });
+    } catch (error) {
+      if (error?.message === 'insufficient_available') {
+        throw Object.assign(new Error('insufficient_available'), { statusCode: 409, status: 409 });
+      }
+      throw error;
+    }
+
+    await StockMove.create({
+      type: 'reserve',
+      listing: listingId,
+      catalogVariant: catalogVariantId,
+      seller: listing.seller,
+      sku: variant?.sku,
+      qty,
+      toWarehouse: whId,
+      cart: cartId ? new mongoose.Types.ObjectId(cartId) : undefined,
+      snapshot: { qtyOnHand: doc.qtyOnHand, qtyReserved: doc.qtyReserved },
+    });
+    return doc;
+  }
+
   const whId = await ensureDefaultWarehouse();
   const variant = await ensureDefaultVariantForProduct(productId);
-  const doc = await InventoryItem.reserve({ variantId: variant._id, warehouseId: whId, qty });
+  let doc;
+  try {
+    doc = await InventoryItem.reserve({ variantId: variant._id, warehouseId: whId, qty });
+  } catch (error) {
+    if (error?.message === 'insufficient_available') {
+      throw Object.assign(new Error('insufficient_available'), { statusCode: 409, status: 409 });
+    }
+    throw error;
+  }
 
   await StockMove.create({
     type: 'reserve',
@@ -62,15 +148,52 @@ export async function reserveForCart({ userId, productId, qty, cartId = null }) 
     qty,
     toWarehouse: whId,
     cart: cartId ? new mongoose.Types.ObjectId(cartId) : undefined,
-    snapshot: { qtyOnHand: doc.qtyOnHand, qtyReserved: doc.qtyReserved }
+    snapshot: { qtyOnHand: doc.qtyOnHand, qtyReserved: doc.qtyReserved },
   });
+
+  return doc;
 }
 
 // Release reserved stock (cart item removal / qty decrease / clear)
-export async function releaseForCart({ userId, productId, qty, cartId = null }) {
+export async function releaseForCart({ userId, productId, listingId, catalogVariantId, qty, cartId = null }) {
+  if (listingId && catalogVariantId) {
+    const { listing, variant } = await loadListingVariant(listingId, catalogVariantId);
+    const whId = await ensureDefaultWarehouse();
+    let doc;
+    try {
+      doc = await WarehouseStock.release({ listingId, catalogVariantId, warehouseId: whId, qty });
+    } catch (error) {
+      if (error?.message === 'nothing_to_release') {
+        throw Object.assign(new Error('nothing_to_release'), { statusCode: 409, status: 409 });
+      }
+      throw error;
+    }
+
+    await StockMove.create({
+      type: 'release',
+      listing: listingId,
+      catalogVariant: catalogVariantId,
+      seller: listing.seller,
+      sku: variant?.sku,
+      qty,
+      toWarehouse: whId,
+      cart: cartId ? new mongoose.Types.ObjectId(cartId) : undefined,
+      snapshot: { qtyOnHand: doc.qtyOnHand, qtyReserved: doc.qtyReserved },
+    });
+    return doc;
+  }
+
   const whId = await ensureDefaultWarehouse();
   const variant = await ensureDefaultVariantForProduct(productId);
-  const doc = await InventoryItem.release({ variantId: variant._id, warehouseId: whId, qty });
+  let doc;
+  try {
+    doc = await InventoryItem.release({ variantId: variant._id, warehouseId: whId, qty });
+  } catch (error) {
+    if (error?.message === 'nothing_to_release') {
+      throw Object.assign(new Error('nothing_to_release'), { statusCode: 409, status: 409 });
+    }
+    throw error;
+  }
 
   await StockMove.create({
     type: 'release',
@@ -79,15 +202,52 @@ export async function releaseForCart({ userId, productId, qty, cartId = null }) 
     qty,
     toWarehouse: whId,
     cart: cartId ? new mongoose.Types.ObjectId(cartId) : undefined,
-    snapshot: { qtyOnHand: doc.qtyOnHand, qtyReserved: doc.qtyReserved }
+    snapshot: { qtyOnHand: doc.qtyOnHand, qtyReserved: doc.qtyReserved },
   });
+
+  return doc;
 }
 
 // Commit reservation when order is placed/paid
-export async function commitForOrder({ orderId, productId, qty }) {
+export async function commitForOrder({ orderId, productId, listingId, catalogVariantId, qty }) {
+  if (listingId && catalogVariantId) {
+    const { listing, variant } = await loadListingVariant(listingId, catalogVariantId);
+    const whId = await ensureDefaultWarehouse();
+    let doc;
+    try {
+      doc = await WarehouseStock.commit({ listingId, catalogVariantId, warehouseId: whId, qty });
+    } catch (error) {
+      if (error?.message === 'commit_failed_insufficient') {
+        throw Object.assign(new Error('insufficient_available'), { statusCode: 409, status: 409 });
+      }
+      throw error;
+    }
+
+    await StockMove.create({
+      type: 'commit',
+      listing: listingId,
+      catalogVariant: catalogVariantId,
+      seller: listing.seller,
+      sku: variant?.sku,
+      qty,
+      toWarehouse: whId,
+      order: orderId ? new mongoose.Types.ObjectId(orderId) : undefined,
+      snapshot: { qtyOnHand: doc.qtyOnHand, qtyReserved: doc.qtyReserved },
+    });
+    return doc;
+  }
+
   const whId = await ensureDefaultWarehouse();
   const variant = await ensureDefaultVariantForProduct(productId);
-  const doc = await InventoryItem.commit({ variantId: variant._id, warehouseId: whId, qty });
+  let doc;
+  try {
+    doc = await InventoryItem.commit({ variantId: variant._id, warehouseId: whId, qty });
+  } catch (error) {
+    if (error?.message === 'commit_failed_insufficient') {
+      throw Object.assign(new Error('insufficient_available'), { statusCode: 409, status: 409 });
+    }
+    throw error;
+  }
 
   await StockMove.create({
     type: 'commit',
@@ -96,8 +256,10 @@ export async function commitForOrder({ orderId, productId, qty }) {
     qty,
     toWarehouse: whId,
     order: orderId ? new mongoose.Types.ObjectId(orderId) : undefined,
-    snapshot: { qtyOnHand: doc.qtyOnHand, qtyReserved: doc.qtyReserved }
+    snapshot: { qtyOnHand: doc.qtyOnHand, qtyReserved: doc.qtyReserved },
   });
+
+  return doc;
 }
 
 // helpers
@@ -260,6 +422,8 @@ export async function listMoves(req, res, next) {
     const [items, total] = await Promise.all([
       StockMove.find(filter).sort('-createdAt').skip((page - 1) * limit).limit(limit)
         .populate('variant', 'sku title')
+        .populate('catalogVariant', 'sku title')
+        .populate('listing', 'seller catalogProduct')
         .populate('product', 'title slug')
         .populate('fromWarehouse', 'code name')
         .populate('toWarehouse', 'code name')

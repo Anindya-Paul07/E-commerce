@@ -19,6 +19,10 @@ function request(method, url, data, config = {}) {
   return http({ method, url, data, ...config }).then((res) => res.data);
 }
 
+function withFormConfig(config = {}) {
+  return { ...config };
+}
+
 export const api = {
   get: (url, config) => request('get', url, undefined, config),
   post: (url, data, config) => request('post', url, data, config),
@@ -26,4 +30,6 @@ export const api = {
   put: (url, data, config) => request('put', url, data, config),
   delete: (url, config) => request('delete', url, undefined, config),
   del: (url, config) => request('delete', url, undefined, config),
+  postForm: (url, data, config) => request('post', url, data, withFormConfig(config)),
+  patchForm: (url, data, config) => request('patch', url, data, withFormConfig(config)),
 };

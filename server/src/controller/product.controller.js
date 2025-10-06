@@ -4,6 +4,7 @@ import Variant from '../model/variant.model.js';
 import InventoryItem from '../model/inventory-item.model.js';
 import { ensureDefaultVariantForProduct, receiveStock } from './inventory.controller.js';
 import { queueProductIndex, removeProductFromIndex } from '../search/indexer.js';
+import { mapUploadedFiles, cleanupReplacedUploads, removeUploads } from '../lib/upload.js';
 
 function slugify(value) {
   return value
@@ -13,6 +14,60 @@ function slugify(value) {
     .replace(/&/g, '-and-')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+function parseImagesInput(value) {
+  if (typeof value === 'undefined' || value === null) return undefined;
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((entry) => String(entry || '').trim())
+          .filter(Boolean);
+      }
+    } catch (error) {
+      // ignore and fallback to comma split
+    }
+    if (trimmed.includes(',')) {
+      return trimmed
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+    }
+    return [trimmed];
+  }
+  return [];
+}
+
+function parseArrayInput(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => String(entry || '').trim()).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map((entry) => String(entry || '').trim()).filter(Boolean);
+      }
+    } catch (error) {
+      // ignore and fallback to comma split
+    }
+    return trimmed
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+  return [];
 }
 
 export async function list(req, res, next) {
@@ -68,15 +123,14 @@ export async function getOne(req, res, next) {
 
 export async function create(req, res, next) {
   try {
+    const body = req.body || {};
     const {
       title,
       description,
       price,
-      images = [],
       brand,
       status = 'active',
       stock = 0,
-      tags = [],
       slug,
       compareAtPrice,
       seller,
@@ -91,10 +145,30 @@ export async function create(req, res, next) {
       boost,
       attributes,
       metadata,
-    } = req.body || {};
+    } = body;
+    const tagsInput = body.tags;
+    const categoriesInput = body.categories;
+    const imagesInput = body.images;
 
     if (!title || price == null) {
       return res.status(400).json({ error: 'title and price are required' });
+    }
+
+    const parsedPrice = Number(price);
+    if (!Number.isFinite(parsedPrice)) {
+      return res.status(400).json({ error: 'price must be a valid number' });
+    }
+
+    const parsedStock = Number(stock || 0);
+    if (!Number.isFinite(parsedStock)) {
+      return res.status(400).json({ error: 'stock must be a valid number' });
+    }
+
+    const parsedCompareAt = (compareAtPrice == null || compareAtPrice === '')
+      ? undefined
+      : Number(compareAtPrice);
+    if (parsedCompareAt !== undefined && !Number.isFinite(parsedCompareAt)) {
+      return res.status(400).json({ error: 'compareAtPrice must be a valid number' });
     }
 
     let finalSlug = slug?.trim() || slugify(title);
@@ -104,17 +178,24 @@ export async function create(req, res, next) {
       finalSlug = `${base}-${i++}`;
     }
 
-    const product = await Product.create({
+    const uploadedImages = mapUploadedFiles(req.files);
+    const bodyImages = parseImagesInput(imagesInput) ?? [];
+    const finalImages = [...bodyImages, ...uploadedImages];
+
+    const parsedTags = parseArrayInput(tagsInput);
+    const parsedCategories = parseArrayInput(categoriesInput);
+
+    const productPayload = {
       title,
       slug: finalSlug,
       description,
-      price,
-      compareAtPrice,
-      images,
+      price: parsedPrice,
+      images: finalImages,
       brand,
       status,
-      stock,
-      tags,
+      stock: parsedStock,
+      tags: parsedTags,
+      categories: parsedCategories,
       seller,
       shop,
       visibility,
@@ -127,12 +208,16 @@ export async function create(req, res, next) {
       boost,
       attributes,
       metadata,
-    });
+    };
+
+    if (parsedCompareAt !== undefined) productPayload.compareAtPrice = parsedCompareAt;
+
+    const product = await Product.create(productPayload);
 
     try {
       await ensureDefaultVariantForProduct(product._id);
-      if (stock > 0) {
-        await receiveStock({ productId: product._id, qty: Number(stock), reason: 'product_create' });
+      if (parsedStock > 0) {
+        await receiveStock({ productId: product._id, qty: parsedStock, reason: 'product_create' });
       }
     } catch (inventoryError) {
       console.error('Failed to initialise inventory for product', product._id, inventoryError);
@@ -148,16 +233,89 @@ export async function create(req, res, next) {
 export async function update(req, res, next) {
   try {
     const { id } = req.params;
-    const updates = { ...req.body };
+    const body = { ...req.body };
 
-    if (updates.title && !updates.slug) updates.slug = slugify(updates.title);
-    if (updates.slug) {
-      const exists = await Product.findOne({ slug: updates.slug, _id: { $ne: id } });
+    if (!body.slug && body.title) body.slug = slugify(body.title);
+    if (body.slug) {
+      const exists = await Product.findOne({ slug: body.slug, _id: { $ne: id } });
       if (exists) return res.status(409).json({ error: 'Slug already in use' });
     }
 
-    const product = await Product.findByIdAndUpdate(id, updates, { new: true });
+    const product = await Product.findById(id);
     if (!product) return res.status(404).json({ error: 'Product not found' });
+
+    const previousImages = product.images || [];
+
+    const uploadedImages = mapUploadedFiles(req.files);
+    const bodyImages = parseImagesInput(body.images);
+    if (typeof bodyImages !== 'undefined' || uploadedImages.length) {
+      const baseImages = Array.isArray(bodyImages) ? bodyImages : [];
+      product.images = [...baseImages, ...uploadedImages];
+    }
+
+    const updates = {};
+
+    if (body.title !== undefined) updates.title = body.title;
+    if (body.slug !== undefined) updates.slug = body.slug;
+    if (body.description !== undefined) updates.description = body.description;
+    if (body.brand !== undefined) updates.brand = body.brand;
+    if (body.status !== undefined) updates.status = body.status;
+    if (body.visibility !== undefined) updates.visibility = body.visibility;
+    if (body.fulfillmentMode !== undefined) updates.fulfillmentMode = body.fulfillmentMode;
+    if (body.dimensions !== undefined) updates.dimensions = body.dimensions;
+    if (body.compliance !== undefined) updates.compliance = body.compliance;
+    if (body.logistics !== undefined) updates.logistics = body.logistics;
+    if (body.commission !== undefined) updates.commission = body.commission;
+    if (body.seo !== undefined) updates.seo = body.seo;
+    if (body.boost !== undefined) updates.boost = body.boost;
+    if (body.attributes !== undefined) updates.attributes = body.attributes;
+    if (body.metadata !== undefined) updates.metadata = body.metadata;
+    if (body.seller !== undefined) updates.seller = body.seller;
+    if (body.shop !== undefined) updates.shop = body.shop;
+
+    if (body.price !== undefined) {
+      const parsedPrice = Number(body.price);
+      if (!Number.isFinite(parsedPrice)) return res.status(400).json({ error: 'price must be a valid number' });
+      updates.price = parsedPrice;
+    }
+
+    if (body.compareAtPrice !== undefined) {
+      if (body.compareAtPrice === '' || body.compareAtPrice === null) {
+        updates.compareAtPrice = undefined;
+      } else {
+        const parsedCompareAt = Number(body.compareAtPrice);
+        if (!Number.isFinite(parsedCompareAt)) {
+          return res.status(400).json({ error: 'compareAtPrice must be a valid number' });
+        }
+        updates.compareAtPrice = parsedCompareAt;
+      }
+    }
+
+    if (body.stock !== undefined) {
+      const parsedStock = Number(body.stock);
+      if (!Number.isFinite(parsedStock)) return res.status(400).json({ error: 'stock must be a valid number' });
+      updates.stock = parsedStock;
+    }
+
+    if (body.tags !== undefined) {
+      updates.tags = parseArrayInput(body.tags);
+    }
+
+    if (body.categories !== undefined) {
+      updates.categories = parseArrayInput(body.categories);
+    }
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === undefined) {
+        product.set(key, undefined);
+      } else {
+        product.set(key, value);
+      }
+    });
+
+    await product.save();
+
+    await cleanupReplacedUploads(previousImages, product.images);
 
     queueProductIndex(product);
     res.json({ product });
@@ -230,6 +388,7 @@ export async function remove(req, res, next) {
     const product = await Product.findByIdAndDelete(id);
     if (!product) return res.status(404).json({ error: 'Product not found' });
     removeProductFromIndex(id);
+    await removeUploads(product.images);
     res.json({ ok: true });
   } catch (error) {
     next(error);

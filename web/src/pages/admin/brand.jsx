@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { notify } from '@/lib/notify';
 import { useConfirm } from '@/context/ConfirmContext';
+import { buildFormData } from '@/lib/form-data';
 
 const EMPTY = {
   name: '',
@@ -22,6 +23,8 @@ export default function AdminBrandsPage() {
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoInputKey, setLogoInputKey] = useState(0);
 
   async function load() {
     setLoading(true);
@@ -50,8 +53,11 @@ export default function AdminBrandsPage() {
     try {
       const payload = { ...form };
       if (!payload.slug) delete payload.slug;
-      await api.post('/brands', payload);
+      const formData = buildFormData(payload, { logo: logoFile || undefined });
+      await api.postForm('/brands', formData);
       setForm(EMPTY);
+      setLogoFile(null);
+      setLogoInputKey((k) => k + 1);
       notify.success('Brand created');
       await load();
     } catch (err) {
@@ -89,7 +95,7 @@ export default function AdminBrandsPage() {
           <CardTitle>Create brand</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={createBrand} className="grid gap-3 md:grid-cols-2">
+          <form onSubmit={createBrand} className="grid gap-3 md:grid-cols-2" encType="multipart/form-data">
             <input
               className="h-10 rounded-md border bg-background px-3"
               placeholder="Name *"
@@ -109,6 +115,20 @@ export default function AdminBrandsPage() {
               value={form.logo}
               onChange={(event) => updateForm('logo', event.target.value)}
             />
+            <div className="flex flex-col gap-1 text-sm md:col-span-2">
+              <label className="font-medium">Upload logo</label>
+              <input
+                key={logoInputKey}
+                type="file"
+                accept="image/*"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] || null;
+                  setLogoFile(file);
+                }}
+                className="text-xs"
+              />
+              {logoFile && <span className="text-muted-foreground">Selected: {logoFile.name}</span>}
+            </div>
             <input
               className="h-10 rounded-md border bg-background px-3 md:col-span-2"
               placeholder="Website"

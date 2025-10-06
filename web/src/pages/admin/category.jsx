@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { notify } from '@/lib/notify'
 import { useConfirm } from '@/context/ConfirmContext'
+import { buildFormData } from '@/lib/form-data'
 
 const EMPTY = {
   name: '', slug: '', description: '', image: '', parent: '', isActive: true, sortOrder: 0
@@ -31,6 +32,8 @@ export default function AdminCategoriesPage() {
   const [form, setForm] = useState(EMPTY)
   const [editingId, setEditingId] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [imageFile, setImageFile] = useState(null)
+  const [imageInputKey, setImageInputKey] = useState(0)
   const confirm = useConfirm()
 
   async function load() {
@@ -57,14 +60,20 @@ export default function AdminCategoriesPage() {
     setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
   }
 
+  function onImageChange(event) {
+    const file = event.target.files?.[0] || null
+    setImageFile(file)
+  }
+
   async function createCat(e) {
     e.preventDefault()
     setSaving(true); setErr('')
     try {
       const payload = toPayload(form)
       if (!payload.name) throw new Error('Name is required')
-      await api.post('/categories', payload)
-      setForm(EMPTY); setEditingId(null)
+      const formData = buildFormData(payload, { image: imageFile || undefined })
+      await api.postForm('/categories', formData)
+      setForm(EMPTY); setEditingId(null); setImageFile(null); setImageInputKey(k => k + 1)
       await load()
       notify.success('Category created')
     } catch (e) {
@@ -86,6 +95,8 @@ export default function AdminCategoriesPage() {
       isActive: !!item.isActive,
       sortOrder: item.sortOrder ?? 0,
     })
+    setImageFile(null)
+    setImageInputKey(k => k + 1)
   }
 
   async function saveEdit(e) {
@@ -95,8 +106,9 @@ export default function AdminCategoriesPage() {
     try {
       const payload = toPayload(form)
       if (!payload.name) throw new Error('Name is required')
-      await api.patch(`/categories/${editingId}`, payload)
-      setForm(EMPTY); setEditingId(null)
+      const formData = buildFormData(payload, { image: imageFile || undefined })
+      await api.patchForm(`/categories/${editingId}`, formData)
+      setForm(EMPTY); setEditingId(null); setImageFile(null); setImageInputKey(k => k + 1)
       await load()
       notify.success('Category updated')
     } catch (e) {
@@ -133,10 +145,25 @@ export default function AdminCategoriesPage() {
       <Card>
         <CardHeader><CardTitle>{editingId ? 'Edit category' : 'New category'}</CardTitle></CardHeader>
         <CardContent>
-          <form onSubmit={editingId ? saveEdit : createCat} className="grid gap-3 sm:grid-cols-2">
+          <form
+            onSubmit={editingId ? saveEdit : createCat}
+            className="grid gap-3 sm:grid-cols-2"
+            encType="multipart/form-data"
+          >
             <input className="h-10 rounded-md border bg-background px-3" placeholder="Name" name="name" value={form.name} onChange={onChange} required />
             <input className="h-10 rounded-md border bg-background px-3" placeholder="Slug (optional)" name="slug" value={form.slug} onChange={onChange} />
             <input className="h-10 rounded-md border bg-background px-3" placeholder="Image URL (optional)" name="image" value={form.image} onChange={onChange} />
+            <div className="flex flex-col gap-1 text-sm">
+              <label className="font-medium">Upload image</label>
+              <input
+                key={imageInputKey}
+                type="file"
+                accept="image/*"
+                onChange={onImageChange}
+                className="text-xs"
+              />
+              {imageFile && <span className="text-muted-foreground">Selected: {imageFile.name}</span>}
+            </div>
             <select className="h-10 rounded-md border bg-background px-3" name="parent" value={form.parent} onChange={onChange}>
               {parentOptions.map(p => (
                 <option key={p._id || 'root'} value={p.slug || p._id}>{p.name}</option>

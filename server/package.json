@@ -2,13 +2,14 @@
   "name": "server",
   "version": "1.0.0",
   "main": "index.js",
-  "type":"module",
+  "type": "module",
   "scripts": {
-  "dev": "nodemon src/server.js",
-  "start": "node src/server.js",
-  "seed:Admin": "node src/seedAdmin.mjs"
-
-},
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "seed:Admin": "node src/seedAdmin.mjs",
+    "seed:catalog": "node src/seedCatalog.mjs",
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -24,6 +25,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.0",
+    "multer": "^1.4.5-lts.1",
     "pino": "^9.5.0",
     "pino-http": "^10.3.0",
     "passport": "^0.7.0",
@@ -31,7 +33,10 @@
     "passport-local": "^1.0.0"
   },
   "devDependencies": {
+    "jest": "^29.7.0",
+    "mongodb-memory-server": "^10.1.4",
     "nodemon": "^3.1.10",
-    "pino-pretty": "^11.3.0"
+    "pino-pretty": "^11.3.0",
+    "supertest": "^7.0.0"
   }
 }
