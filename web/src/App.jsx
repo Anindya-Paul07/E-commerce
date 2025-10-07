@@ -6,6 +6,7 @@ import Register from '@/pages/register'
 import Product from '@/pages/product'
 import CategoryPage from '@/pages/category'
 import Cart from '@/pages/cart'
+import SellerApplicationPage from '@/pages/seller/apply'
 
 import AdminLayout from '@/layout/adminlayout'
 import Dashboard from '@/pages/admin/dashboard'
@@ -26,6 +27,7 @@ export default function App() {
           <Route path='/cart' element={<Cart />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/seller/apply" element={<SellerApplicationPage />} />
         </Route>
 
         <Route path="/admin" element={<AdminLayout />}>
