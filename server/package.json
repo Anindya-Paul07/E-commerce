@@ -4,20 +4,12 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-<<<<<<< HEAD
-  "dev": "nodemon server.js",
-  "start": "node src/server.js",
-  "seed:Admin": "node seedAdmin.mjs"
-
-},
-=======
-    "dev": "nodemon src/server.js",
-    "start": "node src/server.js",
-    "seed:Admin": "node src/seedAdmin.mjs",
-    "seed:catalog": "node src/seedCatalog.mjs",
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "seed:Admin": "node seedAdmin.mjs",
+    "seed:catalog": "node seedCatalog.mjs",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js"
   },
->>>>>>> 3edd775 (added backend controllers)
   "keywords": [],
   "author": "",
   "license": "ISC",

@@ -1,16 +1,9 @@
 import Cart from '../model/cart.model.js';
 import Product from '../model/product.model.js';
-<<<<<<< HEAD:server/controller/cart.controller.js
-<<<<<<< HEAD:server/controller/cart.controller.js
-import { reserveForCart, releaseForCart } from './inventory.controller.js';
-=======
-=======
 import SellerListing from '../model/seller-listing.model.js';
 import CatalogProduct from '../model/catalog-product.model.js';
 import CatalogVariant from '../model/catalog-variant.model.js';
->>>>>>> 3edd775 (added backend controllers):server/src/controller/cart.controller.js
 import { reserveForCart, releaseForCart, ensureDefaultVariantForProduct } from './inventory.controller.js';
->>>>>>> 0eec417 (added moderinazation.):server/src/controller/cart.controller.js
 
 async function getOrCreateCart(userId) {
   let cart = await Cart.findOne({ user: userId });
@@ -82,7 +75,9 @@ export async function getCart(req, res, next) {
   try {
     const cart = await getOrCreateCart(req.user._id);
     res.json({ cart, subtotal: cart.subtotal() });
-  } catch (e) { next(e); }
+  } catch (error) {
+    next(error);
+  }
 }
 
 export async function addItem(req, res, next) {
@@ -154,46 +149,24 @@ export async function addItem(req, res, next) {
     if (!product) return res.status(404).json({ error: 'Product not found' });
     if (product.status !== 'active') return res.status(400).json({ error: 'Product not active' });
 
-<<<<<<< HEAD:server/controller/cart.controller.js
-    const cart = await getOrCreateCart(req.user._id);
-    const idx = cart.items.findIndex(it => String(it.product) === String(product._id));
-<<<<<<< HEAD:server/controller/cart.controller.js
-    let addQty = Number(qty || 1);
-
-    if (idx >= 0) {
-      // reserve only the delta being added
-      await reserveForCart({ userId: req.user._id, productId: product._id, qty: addQty, cartId: cart._id });
-      cart.items[idx].qty += addQty;
-=======
-    const delta = Number(qty || 1);
-
-    if (delta <= 0) return res.status(400).json({ error: 'qty must be > 0' });
-
-=======
     const idx = findCartItemIndex(cart, { productId: product._id });
->>>>>>> 3edd775 (added backend controllers):server/src/controller/cart.controller.js
     const variant = await ensureDefaultVariantForProduct(product._id);
+
     await reserveForCart({ userId: req.user._id, productId: product._id, qty: delta, cartId: cart._id });
 
     if (idx >= 0) {
       cart.items[idx].qty += delta;
->>>>>>> 0eec417 (added moderinazation.):server/src/controller/cart.controller.js
     } else {
-      await reserveForCart({ userId: req.user._id, productId: product._id, qty: addQty, cartId: cart._id });
       cart.items.push({
         product: product._id,
+        variant: variant?._id,
         seller: product.seller,
         shop: product.shop,
         title: product.title,
         price: product.price,
         image: product.images?.[0] || '',
-<<<<<<< HEAD:server/controller/cart.controller.js
-        qty: addQty,
-        qty: Number(qty || 1),
-=======
         qty: delta,
-        variant: variant?._id,
->>>>>>> 0eec417 (added moderinazation.):server/src/controller/cart.controller.js
+        sku: variant?.sku,
         commissionRate: product.commission?.rate,
         metadata: {
           fulfillmentMode: product.fulfillmentMode,
@@ -204,8 +177,8 @@ export async function addItem(req, res, next) {
 
     await cart.save();
     return res.status(201).json({ cart, subtotal: cart.subtotal() });
-  } catch (e) {
-    next(e);
+  } catch (error) {
+    next(error);
   }
 }
 
@@ -214,20 +187,15 @@ export async function updateItem(req, res, next) {
     const { listingId, variantId, productId } = req.params;
     const { qty } = req.body || {};
     const cart = await getOrCreateCart(req.user._id);
-<<<<<<< HEAD:server/controller/cart.controller.js
-    const it = cart.items.find(i => String(i.product) === String(productId));
-    if (!it) return res.status(404).json({ error: 'Item not in cart' });
 
-=======
     const idx = findCartItemIndex(cart, { listingId, variantId, productId });
     if (idx < 0) return res.status(404).json({ error: 'Item not in cart' });
 
     const item = cart.items[idx];
->>>>>>> 3edd775 (added backend controllers):server/src/controller/cart.controller.js
-    const n = Number(qty);
-    if (!Number.isFinite(n) || n < 1) return res.status(400).json({ error: 'qty must be >= 1' });
+    const nextQty = Number(qty);
+    if (!Number.isFinite(nextQty) || nextQty < 1) return res.status(400).json({ error: 'qty must be >= 1' });
 
-    const delta = n - item.qty;
+    const delta = nextQty - item.qty;
     if (delta > 0) {
       if (item.listing && item.catalogVariant) {
         await reserveForCart({
@@ -238,7 +206,12 @@ export async function updateItem(req, res, next) {
           cartId: cart._id,
         });
       } else if (item.product) {
-        await reserveForCart({ userId: req.user._id, productId: item.product, qty: delta, cartId: cart._id });
+        await reserveForCart({
+          userId: req.user._id,
+          productId: item.product,
+          qty: delta,
+          cartId: cart._id,
+        });
       }
     } else if (delta < 0) {
       const releaseQty = Math.abs(delta);
@@ -251,15 +224,21 @@ export async function updateItem(req, res, next) {
           cartId: cart._id,
         });
       } else if (item.product) {
-        await releaseForCart({ userId: req.user._id, productId: item.product, qty: releaseQty, cartId: cart._id });
+        await releaseForCart({
+          userId: req.user._id,
+          productId: item.product,
+          qty: releaseQty,
+          cartId: cart._id,
+        });
       }
     }
 
-    item.qty = n;
+    item.qty = nextQty;
     await cart.save();
+
     res.json({ cart, subtotal: cart.subtotal() });
-  } catch (e) {
-    next(e);
+  } catch (error) {
+    next(error);
   }
 }
 
@@ -267,22 +246,7 @@ export async function removeItem(req, res, next) {
   try {
     const { listingId, variantId, productId } = req.params;
     const cart = await getOrCreateCart(req.user._id);
-<<<<<<< HEAD:server/controller/cart.controller.js
-<<<<<<< HEAD:server/controller/cart.controller.js
-    const it = cart.items.find(i => String(i.product) === String(productId));
-    if (it) {
-      await releaseForCart({ userId: req.user._id, productId, qty: it.qty, cartId: cart._id });
-      cart.items = cart.items.filter(i => String(i.product) !== String(productId));
-      await cart.save();
-    }
-=======
-    const remaining = [];
-    for (const item of cart.items) {
-      if (String(item.product) === String(productId)) {
-        await releaseForCart({ userId: req.user._id, productId, qty: item.qty, cartId: cart._id });
-      } else {
-        remaining.push(item);
-=======
+
     const idx = findCartItemIndex(cart, { listingId, variantId, productId });
     if (idx < 0) return res.status(404).json({ error: 'Item not in cart' });
 
@@ -303,31 +267,20 @@ export async function removeItem(req, res, next) {
           qty: removed.qty,
           cartId: cart._id,
         });
->>>>>>> 3edd775 (added backend controllers):server/src/controller/cart.controller.js
       }
     }
 
     await cart.save();
->>>>>>> 0eec417 (added moderinazation.):server/src/controller/cart.controller.js
     res.json({ cart, subtotal: cart.subtotal() });
-  } catch (e) {
-    next(e);
+  } catch (error) {
+    next(error);
   }
 }
 
 export async function clearCart(req, res, next) {
   try {
     const cart = await getOrCreateCart(req.user._id);
-<<<<<<< HEAD:server/controller/cart.controller.js
-<<<<<<< HEAD:server/controller/cart.controller.js
-    // release everything
-    const releases = cart.items.map(it =>
-=======
-    const releases = cart.items.map((it) =>
->>>>>>> 0eec417 (added moderinazation.):server/src/controller/cart.controller.js
-      releaseForCart({ userId: req.user._id, productId: it.product, qty: it.qty, cartId: cart._id })
-    );
-=======
+
     const releases = cart.items.map((item) => {
       if (item.listing && item.catalogVariant) {
         return releaseForCart({
@@ -348,10 +301,13 @@ export async function clearCart(req, res, next) {
       }
       return Promise.resolve();
     });
->>>>>>> 3edd775 (added backend controllers):server/src/controller/cart.controller.js
+
     await Promise.allSettled(releases);
     cart.items = [];
     await cart.save();
+
     res.json({ cart, subtotal: 0 });
-  } catch (e) { next(e); }
+  } catch (error) {
+    next(error);
+  }
 }

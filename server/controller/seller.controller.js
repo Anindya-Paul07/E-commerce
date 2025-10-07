@@ -235,7 +235,3 @@ export async function submitSellerApplication(req, res, next) {
     next(error);
   }
 }
-<<<<<<< HEAD:server/controller/seller.controller.js
-
-=======
->>>>>>> 3edd775 (added backend controllers):server/src/controller/seller.controller.js

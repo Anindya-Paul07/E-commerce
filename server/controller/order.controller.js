@@ -1,9 +1,8 @@
 import Order from '../model/order.model.js';
 import Cart from '../model/cart.model.js';
-import { commitForOrder } from './inventory.controller.js';
+import { commitForOrder, releaseForCart } from './inventory.controller.js';
 import { queueFulfillmentForOrder } from '../lib/fulfillment.js';
 import { logger } from '../lib/logger.js';
-import { commitForOrder, releaseForCart } from './inventory.controller.js';
 
 function pad(n, w=5){ return String(n).padStart(w,'0'); }
 function orderNumber() {
@@ -112,21 +111,7 @@ export async function checkout(req, res, next) {
       logger.error({ err, orderId: order._id }, 'Failed to queue fulfillment tasks');
     });
 
-<<<<<<< HEAD:server/controller/order.controller.js
-    // Commit all reservations
-    try {
-      for (const it of cart.items) {
-        await commitForOrder({ orderId: order._id, productId: it.product, qty: it.qty });
-      }
-    } catch (err) {
-      // If commit fails for any line, abort order (simple strategy)
-      await Order.findByIdAndUpdate(order._id, { status: 'canceled', notes: `Auto-canceled: ${err.message}` });
-      return res.status(409).json({ error: 'Insufficient stock during commit', detail: err.message });
-    }
-
     // Clear cart
-=======
->>>>>>> 0eec417 (added moderinazation.):server/src/controller/order.controller.js
     cart.items = [];
     await cart.save();
 

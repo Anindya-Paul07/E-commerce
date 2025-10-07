@@ -1,0 +1,228 @@
+{
+  "products": [
+    {
+      "id": "68e4be4abfd1e46f1417c480",
+      "slug": "multipart-product",
+      "title": "Multipart Product",
+      "description": "",
+      "price": 19.99,
+      "status": "active",
+      "brand": "",
+      "tags": [
+        "featured"
+      ],
+      "categories": [],
+      "images": [
+        "https://cdn.example.com/remote.jpg",
+        "/uploads/uploaded-a.jpg",
+        "/uploads/uploaded-b.jpg"
+      ],
+      "boostScore": 0,
+      "updatedAt": "2025-10-07T07:16:26.317Z"
+    },
+    {
+      "id": "68e4be4abfd1e46f1417c4a3",
+      "slug": "clean-up-product",
+      "title": "Clean Up Product",
+      "description": "",
+      "price": 29.99,
+      "status": "active",
+      "brand": "",
+      "tags": [],
+      "categories": [],
+      "images": [
+        "https://cdn.example.com/hero.jpg",
+        "/uploads/new-upload.jpg"
+      ],
+      "boostScore": 0,
+      "updatedAt": "2025-10-07T07:16:26.735Z"
+    },
+    {
+      "id": "68e4befde434fed77b87bb4c",
+      "slug": "multipart-product",
+      "title": "Multipart Product",
+      "description": "",
+      "price": 19.99,
+      "status": "active",
+      "brand": "",
+      "tags": [
+        "featured"
+      ],
+      "categories": [],
+      "images": [
+        "https://cdn.example.com/remote.jpg",
+        "/uploads/uploaded-a.jpg",
+        "/uploads/uploaded-b.jpg"
+      ],
+      "boostScore": 0,
+      "updatedAt": "2025-10-07T07:19:25.895Z"
+    },
+    {
+      "id": "68e4befee434fed77b87bb6d",
+      "slug": "clean-up-product",
+      "title": "Clean Up Product",
+      "description": "",
+      "price": 29.99,
+      "status": "active",
+      "brand": "",
+      "tags": [],
+      "categories": [],
+      "images": [
+        "https://cdn.example.com/hero.jpg",
+        "/uploads/new-upload.jpg"
+      ],
+      "boostScore": 0,
+      "updatedAt": "2025-10-07T07:19:26.240Z"
+    },
+    {
+      "id": "68e4c2fdc62e97410226355d",
+      "slug": "multipart-product",
+      "title": "Multipart Product",
+      "description": "",
+      "price": 19.99,
+      "status": "active",
+      "brand": "",
+      "tags": [
+        "featured"
+      ],
+      "categories": [],
+      "images": [
+        "https://cdn.example.com/remote.jpg",
+        "/uploads/uploaded-a.jpg",
+        "/uploads/uploaded-b.jpg"
+      ],
+      "boostScore": 0,
+      "updatedAt": "2025-10-07T07:36:29.515Z"
+    },
+    {
+      "id": "68e4c2fdc62e974102263581",
+      "slug": "clean-up-product",
+      "title": "Clean Up Product",
+      "description": "",
+      "price": 29.99,
+      "status": "active",
+      "brand": "",
+      "tags": [],
+      "categories": [],
+      "images": [
+        "https://cdn.example.com/hero.jpg",
+        "/uploads/new-upload.jpg"
+      ],
+      "boostScore": 0,
+      "updatedAt": "2025-10-07T07:36:29.897Z"
+    },
+    {
+      "id": "68e4c3a0f6430cb1cee7e23b",
+      "slug": "multipart-product",
+      "title": "Multipart Product",
+      "description": "",
+      "price": 19.99,
+      "status": "active",
+      "brand": "",
+      "tags": [
+        "featured"
+      ],
+      "categories": [],
+      "images": [
+        "https://cdn.example.com/remote.jpg",
+        "/uploads/uploaded-a.jpg",
+        "/uploads/uploaded-b.jpg"
+      ],
+      "boostScore": 0,
+      "updatedAt": "2025-10-07T07:39:12.903Z"
+    },
+    {
+      "id": "68e4c3a1f6430cb1cee7e25b",
+      "slug": "clean-up-product",
+      "title": "Clean Up Product",
+      "description": "",
+      "price": 29.99,
+      "status": "active",
+      "brand": "",
+      "tags": [],
+      "categories": [],
+      "images": [
+        "https://cdn.example.com/hero.jpg",
+        "/uploads/new-upload.jpg"
+      ],
+      "boostScore": 0,
+      "updatedAt": "2025-10-07T07:39:13.248Z"
+    },
+    {
+      "id": "68e4c495d692dee4c534ad61",
+      "slug": "multipart-product",
+      "title": "Multipart Product",
+      "description": "",
+      "price": 19.99,
+      "status": "active",
+      "brand": "",
+      "tags": [
+        "featured"
+      ],
+      "categories": [],
+      "images": [
+        "https://cdn.example.com/remote.jpg",
+        "/uploads/uploaded-a.jpg",
+        "/uploads/uploaded-b.jpg"
+      ],
+      "boostScore": 0,
+      "updatedAt": "2025-10-07T07:43:17.879Z"
+    },
+    {
+      "id": "68e4c496d692dee4c534ad87",
+      "slug": "clean-up-product",
+      "title": "Clean Up Product",
+      "description": "",
+      "price": 29.99,
+      "status": "active",
+      "brand": "",
+      "tags": [],
+      "categories": [],
+      "images": [
+        "https://cdn.example.com/hero.jpg",
+        "/uploads/new-upload.jpg"
+      ],
+      "boostScore": 0,
+      "updatedAt": "2025-10-07T07:43:18.431Z"
+    },
+    {
+      "id": "68e4c52b9a00b66822ca5cea",
+      "slug": "multipart-product",
+      "title": "Multipart Product",
+      "description": "",
+      "price": 19.99,
+      "status": "active",
+      "brand": "",
+      "tags": [
+        "featured"
+      ],
+      "categories": [],
+      "images": [
+        "https://cdn.example.com/remote.jpg",
+        "/uploads/uploaded-a.jpg",
+        "/uploads/uploaded-b.jpg"
+      ],
+      "boostScore": 0,
+      "updatedAt": "2025-10-07T07:45:47.490Z"
+    },
+    {
+      "id": "68e4c52b9a00b66822ca5d0b",
+      "slug": "clean-up-product",
+      "title": "Clean Up Product",
+      "description": "",
+      "price": 29.99,
+      "status": "active",
+      "brand": "",
+      "tags": [],
+      "categories": [],
+      "images": [
+        "https://cdn.example.com/hero.jpg",
+        "/uploads/new-upload.jpg"
+      ],
+      "boostScore": 0,
+      "updatedAt": "2025-10-07T07:45:47.838Z"
+    }
+  ],
+  "categories": [],
+  "generatedAt": "2025-10-07T07:45:47.873Z"
+}

@@ -1,10 +1,6 @@
 import mongoose from 'mongoose';
-<<<<<<< HEAD:server/controller/brand.controller.js
 import Brand from '../model/brands.model.js';
-=======
-import Brand from '../model/brand.model.js';
 import { toPublicUrl, cleanupReplacedUploads, removeUploads } from '../lib/upload.js';
->>>>>>> 3edd775 (added backend controllers):server/src/controller/brand.controller.js
 
 function slugify(s) {
   return s
@@ -67,9 +63,6 @@ export async function getOne(req, res, next) {
 
 export async function create(req, res, next) {
   try {
-<<<<<<< HEAD:server/controller/brand.controller.js
-    const { name, slug, description = '', logo = '', website = '', status = 'active', sortOrder = 0 } = req.body || {};
-=======
     const {
       name,
       slug,
@@ -79,7 +72,6 @@ export async function create(req, res, next) {
       status = 'active',
       sortOrder = 0,
     } = req.body || {};
->>>>>>> 3edd775 (added backend controllers):server/src/controller/brand.controller.js
     if (!name) return res.status(400).json({ error: 'name is required' });
 
     const uploadedLogo = req.file ? toPublicUrl(req.file) : null;

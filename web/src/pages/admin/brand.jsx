@@ -1,17 +1,3 @@
-<<<<<<< HEAD
-import { useEffect, useState } from 'react'
-import { api } from '@/lib/api'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-
-export default function AdminBrandsPage() {
-  const [items, setItems] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [err, setErr] = useState('')
-  const [form, setForm] = useState({ name: '', slug: '', description: '', logo: '', website: '', status: 'active', sortOrder: 0 })
-  const [saving, setSaving] = useState(false)
-  const [editing, setEditing] = useState(null) // id being edited
-=======
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -34,92 +20,87 @@ export default function AdminBrandsPage() {
   const confirm = useConfirm();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState(EMPTY);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [form, setForm] = useState(EMPTY);
   const [logoFile, setLogoFile] = useState(null);
   const [logoInputKey, setLogoInputKey] = useState(0);
->>>>>>> 3edd775 (added backend controllers)
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
-  async function load() {
-    setLoading(true); setErr('')
-    try {
-      const { items } = await api.get('/brands?limit=200&sort=sortOrder name')
-      setItems(items || [])
-    } catch (e) { setErr(e.message || 'Failed to load brands') }
-    finally { setLoading(false) }
-  }
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    loadBrands();
+  }, []);
 
-  async function createBrand(e) {
-    e.preventDefault()
-    setSaving(true)
+  const loadBrands = async () => {
+    setLoading(true);
+    setError('');
     try {
-      const payload = { ...form }
-      if (!payload.slug) delete payload.slug
-      await api.post('/brands', payload)
-      setForm({ name: '', slug: '', description: '', logo: '', website: '', status: 'active', sortOrder: 0 })
-      await load()
-    } catch (e) { alert(e.message) }
-    finally { setSaving(false) }
-  }
+      const { items: rows } = await api.get('/brands?limit=200&sort=sortOrder name');
+      setItems(rows || []);
+    } catch (err) {
+      setError(err.message || 'Failed to load brands');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  async function saveEdit(id, patch) {
+  const updateForm = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const resetForm = () => {
+    setForm(EMPTY);
+    setLogoFile(null);
+    setLogoInputKey((key) => key + 1);
+  };
+
+  const createBrand = async (event) => {
+    event.preventDefault();
+    setSaving(true);
     try {
-<<<<<<< HEAD
-      await api.patch(`/brands/${id}`, patch)
-      setEditing(null)
-      await load()
-    } catch (e) { alert(e.message) }
-  }
-=======
       const payload = { ...form };
       if (!payload.slug) delete payload.slug;
       const formData = buildFormData(payload, { logo: logoFile || undefined });
       await api.postForm('/brands', formData);
-      setForm(EMPTY);
-      setLogoFile(null);
-      setLogoInputKey((k) => k + 1);
       notify.success('Brand created');
-      await load();
+      resetForm();
+      await loadBrands();
     } catch (err) {
       notify.error(err.message || 'Failed to create brand');
     } finally {
       setSaving(false);
     }
   };
->>>>>>> 3edd775 (added backend controllers)
 
-  async function del(id) {
-    if (!confirm('Delete this brand?')) return
+  const patchBrand = async (id, patch) => {
     try {
-      await api.delete(`/brands/${id}`)
-      await load()
-    } catch (e) { alert(e.message) }
-  }
+      await api.patch(`/brands/${id}`, patch);
+      await loadBrands();
+      notify.success('Brand updated');
+    } catch (err) {
+      notify.error(err.message || 'Failed to update brand');
+    }
+  };
+
+  const deleteBrand = async (id) => {
+    const ok = await confirm('Delete this brand?');
+    if (!ok) return;
+    try {
+      await api.delete(`/brands/${id}`);
+      notify.success('Brand deleted');
+      await loadBrands();
+    } catch (err) {
+      notify.error(err.message || 'Failed to delete brand');
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* New brand */}
       <Card>
-        <CardHeader><CardTitle>Create brand</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Create brand</CardTitle>
+        </CardHeader>
         <CardContent>
-<<<<<<< HEAD
-          <form onSubmit={createBrand} className="grid gap-3 md:grid-cols-2">
-            <input className="h-10 rounded-md border bg-background px-3" placeholder="Name *"
-              value={form.name} onChange={e=>setForm(f=>({...f, name:e.target.value}))} required />
-            <input className="h-10 rounded-md border bg-background px-3" placeholder="Slug (optional)"
-              value={form.slug} onChange={e=>setForm(f=>({...f, slug:e.target.value}))} />
-            <input className="h-10 rounded-md border bg-background px-3 md:col-span-2" placeholder="Logo URL"
-              value={form.logo} onChange={e=>setForm(f=>({...f, logo:e.target.value}))} />
-            <input className="h-10 rounded-md border bg-background px-3 md:col-span-2" placeholder="Website"
-              value={form.website} onChange={e=>setForm(f=>({...f, website:e.target.value}))} />
-            <textarea className="min-h-[80px] rounded-md border bg-background px-3 py-2 md:col-span-2" placeholder="Description"
-              value={form.description} onChange={e=>setForm(f=>({...f, description:e.target.value}))} />
-            <div className="flex gap-3 items-center">
-              <select className="h-10 rounded-md border bg-background px-3"
-                value={form.status} onChange={e=>setForm(f=>({...f, status:e.target.value}))}>
-=======
           <form onSubmit={createBrand} className="grid gap-3 md:grid-cols-2" encType="multipart/form-data">
             <input
               className="h-10 rounded-md border bg-background px-3"
@@ -172,12 +153,16 @@ export default function AdminBrandsPage() {
                 value={form.status}
                 onChange={(event) => updateForm('status', event.target.value)}
               >
->>>>>>> 3edd775 (added backend controllers)
                 <option value="active">active</option>
                 <option value="draft">draft</option>
               </select>
-              <input type="number" className="h-10 w-32 rounded-md border bg-background px-3" placeholder="Sort"
-                value={form.sortOrder} onChange={e=>setForm(f=>({...f, sortOrder:Number(e.target.value||0)}))} />
+              <input
+                type="number"
+                className="h-10 w-32 rounded-md border bg-background px-3"
+                placeholder="Sort"
+                value={form.sortOrder}
+                onChange={(event) => updateForm('sortOrder', Number(event.target.value || 0))}
+              />
             </div>
             <div className="md:col-span-2">
               <Button disabled={saving}>{saving ? 'Saving…' : 'Create brand'}</Button>
@@ -186,15 +171,16 @@ export default function AdminBrandsPage() {
         </CardContent>
       </Card>
 
-      {/* List */}
       <Card>
-        <CardHeader><CardTitle>Brands</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Brands</CardTitle>
+        </CardHeader>
         <CardContent>
           {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
-          {err && <p className="text-sm text-red-600">{err}</p>}
-          {!loading && !err && !items.length && <p className="text-sm text-muted-foreground">No brands yet.</p>}
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          {!loading && !error && !items.length && <p className="text-sm text-muted-foreground">No brands yet.</p>}
 
-          {!loading && !err && items.length > 0 && (
+          {!loading && !error && items.length > 0 && (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -208,37 +194,63 @@ export default function AdminBrandsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map(b => (
-                    <tr key={b._id} className="border-b last:border-0">
+                  {items.map((brand) => (
+                    <tr key={brand._id} className="border-b last:border-0">
                       <td className="py-2 pr-3">
-                        {b.logo ? <img src={b.logo} alt="" className="h-8 w-8 rounded object-cover border" /> : '—'}
+                        {brand.logo ? (
+                          <img src={brand.logo} alt="" className="h-8 w-8 rounded border object-cover" />
+                        ) : (
+                          '—'
+                        )}
                       </td>
                       <td className="py-2 pr-3">
-                        {editing === b._id ? (
-                          <input className="h-8 rounded-md border bg-background px-2 default:outline-none"
-                            defaultValue={b.name}
-                            onBlur={(e)=>saveEdit(b._id, { name: e.target.value })}
-                            autoFocus />
-                        ) : b.name}
+                        {editingId === brand._id ? (
+                          <input
+                            className="h-8 rounded-md border bg-background px-2"
+                            defaultValue={brand.name}
+                            onBlur={(event) => {
+                              setEditingId(null);
+                              const next = event.target.value.trim();
+                              if (next && next !== brand.name) patchBrand(brand._id, { name: next });
+                            }}
+                            autoFocus
+                          />
+                        ) : (
+                          brand.name
+                        )}
                       </td>
-                      <td className="py-2 pr-3">{b.slug}</td>
+                      <td className="py-2 pr-3">{brand.slug || '—'}</td>
                       <td className="py-2 pr-3">
-                        <select className="h-8 rounded-md border bg-background px-2"
-                          value={b.status}
-                          onChange={(e)=>saveEdit(b._id, { status: e.target.value })}>
+                        <select
+                          className="h-8 rounded-md border bg-background px-2"
+                          value={brand.status}
+                          onChange={(event) => patchBrand(brand._id, { status: event.target.value })}
+                        >
                           <option value="active">active</option>
                           <option value="draft">draft</option>
                         </select>
                       </td>
                       <td className="py-2 pr-3">
-                        <input type="number" className="h-8 w-20 rounded-md border bg-background px-2"
-                          defaultValue={b.sortOrder ?? 0}
-                          onBlur={(e)=>saveEdit(b._id, { sortOrder: Number(e.target.value||0) })} />
+                        <input
+                          type="number"
+                          className="h-8 w-20 rounded-md border bg-background px-2"
+                          defaultValue={brand.sortOrder ?? 0}
+                          onBlur={(event) => {
+                            const value = Number(event.target.value || 0);
+                            if (value !== (brand.sortOrder ?? 0)) {
+                              patchBrand(brand._id, { sortOrder: value });
+                            }
+                          }}
+                        />
                       </td>
                       <td className="py-2 pr-3">
                         <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={()=>setEditing(b._id)}>Edit</Button>
-                          <Button size="sm" variant="destructive" onClick={()=>del(b._id)}>Delete</Button>
+                          <Button size="sm" variant="outline" onClick={() => setEditingId(brand._id)}>
+                            Edit
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => deleteBrand(brand._id)}>
+                            Delete
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -250,5 +262,5 @@ export default function AdminBrandsPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

@@ -19,15 +19,10 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
   const [adding, setAdding] = useState(false)
-<<<<<<< HEAD
-  const [msg, setMsg] = useState('')
   const [availability, setAvailability] = useState(null)
   const [availLoading, setAvailLoading] = useState(true)
   const [availErr, setAvailErr] = useState('')
-  const { refreshCart } = useSession()
-=======
   const dispatch = useAppDispatch()
->>>>>>> 0eec417 (added moderinazation.)
 
   useEffect(() => {
     let active = true
@@ -103,8 +98,6 @@ export default function ProductPage() {
           </Button>
           <Button variant="outline">Buy now</Button>
         </div>
-
-        {!!msg && <div className="text-sm">{msg}</div>}
 
         <div className="text-sm text-muted-foreground">
           {availLoading ? 'Checking stock…' : availErr ? 'Availability unavailable' : `Available: ${availability?.available ?? 0}`}

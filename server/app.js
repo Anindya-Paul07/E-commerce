@@ -11,18 +11,14 @@ import { uploadDir } from './lib/upload.js';
 
 import authRoutes from './router/auth.route.js';
 import productRoutes from './router/product.route.js';
-import categoryroutes from './router/category.route.js';
+import categoryRoutes from './router/category.route.js';
 import cartRoutes from './router/cart.route.js';
 import orderRoutes from './router/order.route.js';
 import brandRoutes from './router/brand.route.js';
-import inventoryRoutes from './router/inventory.route.js'
-import warehouseRoutes from './router/warehouse.route.js'
-
+import inventoryRoutes from './router/inventory.route.js';
+import warehouseRoutes from './router/warehouse.route.js';
 import searchRoutes from './router/search.route.js';
 import statsRoutes from './router/stats.route.js';
-import warehouseRoutes from './router/warehouse.route.js';
-import inventoryRoutes from './router/inventory.route.js';
-import brandRoutes from './router/brand.route.js';
 import sellerRoutes from './router/seller.route.js';
 import adminSellerRoutes from './router/admin-seller.route.js';
 import subscriptionPlanRoutes from './router/subscription-plan.route.js';
@@ -48,17 +44,14 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
-app.use('/api/categories', categoryroutes);
+app.use('/api/categories', categoryRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/brands', brandRoutes);
-app.use('/api/inventory', inventoryRoutes)
-app.use('/api/warehouses', warehouseRoutes)
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/warehouses', warehouseRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/stats', statsRoutes);
-app.use('/api/warehouses', warehouseRoutes);
-app.use('/api/inventory', inventoryRoutes);
-app.use('/api/brands', brandRoutes);
 app.use('/api/sellers', sellerRoutes);
 app.use('/api/admin/sellers', adminSellerRoutes);
 app.use('/api/catalog-products', catalogProductRoutes);

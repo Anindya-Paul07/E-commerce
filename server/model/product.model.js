@@ -19,7 +19,6 @@ const productSchema = new mongoose.Schema(
       type: String,
       enum: ['public', 'private', 'unlisted', 'archived'],
       default: 'public',
-      index: true,
     },
     fulfillmentMode: {
       type: String,

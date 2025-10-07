@@ -1,9 +1,5 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-<<<<<<< HEAD
-import { api, setToken } from '@/lib/api'
-=======
->>>>>>> 0eec417 (added moderinazation.)
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { notify } from '@/lib/notify'
@@ -21,12 +17,8 @@ export default function Login() {
   const loading = status === 'loading'
 
   async function onSubmit(e) {
-    e.preventDefault()
-<<<<<<< HEAD
-    setErr(''); setLoading(true)
-=======
-    setErr('')
->>>>>>> 0eec417 (added moderinazation.)
+    e.preventDefault();
+    setErr('');
     try {
       const result = await dispatch(loginThunk({ email, password }))
       if (loginThunk.fulfilled.match(result)) {

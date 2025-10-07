@@ -1,22 +1,10 @@
-<<<<<<< HEAD:server/controller/product.controller.js
-import Product from "../model/product.model.js";
-import Category from "../model/category.model.js";
-import { ensureDefaultVariantForProduct, receiveStock } from "./inventory.controller.js";
-import Variant from "../model/variant.model.js";
-import InventoryItem from "../model/inventoryItem.model.js";
-import { queueProductIndex, removeProductFromIndex } from "../search/indexer.js";
-=======
 import Product from '../model/product.model.js';
 import Category from '../model/category.model.js';
 import Variant from '../model/variant.model.js';
-import InventoryItem from '../model/inventory-item.model.js';
+import InventoryItem from '../model/inventoryItem.model.js';
 import { ensureDefaultVariantForProduct, receiveStock } from './inventory.controller.js';
 import { queueProductIndex, removeProductFromIndex } from '../search/indexer.js';
-<<<<<<< HEAD:server/controller/product.controller.js
->>>>>>> 0eec417 (added moderinazation.):server/src/controller/product.controller.js
-=======
 import { mapUploadedFiles, cleanupReplacedUploads, removeUploads } from '../lib/upload.js';
->>>>>>> 3edd775 (added backend controllers):server/src/controller/product.controller.js
 
 function slugify(value) {
   return value
@@ -96,8 +84,8 @@ export async function list(req, res, next) {
       let catId = null;
       if (/^[0-9a-fA-F]{24}$/.test(cat)) catId = cat;
       else {
-        const c = await Category.findOne({ slug: cat });
-        if (c) catId = c._id;
+        const categoryDoc = await Category.findOne({ slug: cat });
+        if (categoryDoc) catId = categoryDoc._id;
       }
       if (catId) filter.categories = catId;
     }
@@ -123,9 +111,7 @@ export async function getOne(req, res, next) {
   try {
     const idOrSlug = req.params.idOrSlug;
     const byId = /^[0-9a-fA-F]{24}$/.test(idOrSlug);
-    const product = await (byId
-      ? Product.findById(idOrSlug)
-      : Product.findOne({ slug: idOrSlug }));
+    const product = await (byId ? Product.findById(idOrSlug) : Product.findOne({ slug: idOrSlug }));
     if (!product) return res.status(404).json({ error: 'Product not found' });
     res.json({ product });
   } catch (error) {
@@ -176,24 +162,18 @@ export async function create(req, res, next) {
       return res.status(400).json({ error: 'stock must be a valid number' });
     }
 
-    const parsedCompareAt = (compareAtPrice == null || compareAtPrice === '')
-      ? undefined
-      : Number(compareAtPrice);
+    const parsedCompareAt =
+      compareAtPrice == null || compareAtPrice === '' ? undefined : Number(compareAtPrice);
     if (parsedCompareAt !== undefined && !Number.isFinite(parsedCompareAt)) {
       return res.status(400).json({ error: 'compareAtPrice must be a valid number' });
     }
 
     let finalSlug = slug?.trim() || slugify(title);
-<<<<<<< HEAD:server/controller/product.controller.js
-    let base = finalSlug, i = 1;
-    while (await Product.exists({ slug: finalSlug })) finalSlug = `${base}-${i++}`;
-=======
     const base = finalSlug;
     let i = 1;
     while (await Product.exists({ slug: finalSlug })) {
       finalSlug = `${base}-${i++}`;
     }
->>>>>>> 0eec417 (added moderinazation.):server/src/controller/product.controller.js
 
     const uploadedImages = mapUploadedFiles(req.files);
     const bodyImages = parseImagesInput(imagesInput) ?? [];
@@ -210,14 +190,9 @@ export async function create(req, res, next) {
       images: finalImages,
       brand,
       status,
-<<<<<<< HEAD:server/controller/product.controller.js
-      stock,   // keep for now; consider deprecating later
-      tags,
-=======
       stock: parsedStock,
       tags: parsedTags,
       categories: parsedCategories,
->>>>>>> 3edd775 (added backend controllers):server/src/controller/product.controller.js
       seller,
       shop,
       visibility,
@@ -236,12 +211,6 @@ export async function create(req, res, next) {
 
     const product = await Product.create(productPayload);
 
-<<<<<<< HEAD:server/controller/product.controller.js
-    // Ensure default variant and seed initial inventory if stock > 0
-    await ensureDefaultVariantForProduct(product._id);
-    if (stock > 0) {
-      await receiveStock({ productId: product._id, qty: Number(stock), reason: 'product_create' });
-=======
     try {
       await ensureDefaultVariantForProduct(product._id);
       if (parsedStock > 0) {
@@ -249,18 +218,13 @@ export async function create(req, res, next) {
       }
     } catch (inventoryError) {
       console.error('Failed to initialise inventory for product', product._id, inventoryError);
->>>>>>> 0eec417 (added moderinazation.):server/src/controller/product.controller.js
     }
 
     queueProductIndex(product);
     res.status(201).json({ product });
-<<<<<<< HEAD:server/controller/product.controller.js
-  } catch (e) { next(e); }
-=======
   } catch (error) {
     next(error);
   }
->>>>>>> 0eec417 (added moderinazation.):server/src/controller/product.controller.js
 }
 
 export async function update(req, res, next) {
@@ -375,7 +339,7 @@ export async function availability(req, res, next) {
       });
     }
 
-    const variantIds = variants.map((v) => v._id);
+    const variantIds = variants.map((variant) => variant._id);
     const items = await InventoryItem.find(
       { variant: { $in: variantIds } },
       { qtyOnHand: 1, qtyReserved: 1, variant: 1 }
@@ -413,43 +377,6 @@ export async function availability(req, res, next) {
   } catch (error) {
     next(error);
   }
-}
-
-export async function availability(req, res, next) {
-  try {
-    const idOrSlug = req.params.idOrSlug
-    const byId = /^[0-9a-fA-F]{24}$/.test(idOrSlug)
-    const product = await (byId ? Product.findById(idOrSlug) : Product.findOne({ slug: idOrSlug }))
-    if (!product) return res.status(404).json({ error: 'Product not found' })
-
-    const variants = await Variant.find({ product: product._id }, { _id: 1, sku: 1, title: 1 })
-    const vIds = variants.map(v => v._id)
-    if (!vIds.length) return res.json({ product: { id: product._id, slug: product.slug }, onHand: 0, reserved: 0, available: 0, perVariant: [] })
-
-    const items = await InventoryItem.find({ variant: { $in: vIds } }, { qtyOnHand: 1, qtyReserved: 1, variant: 1 }).populate('variant', 'sku title')
-
-    const totals = items.reduce((acc, it) => {
-      acc.onHand += it.qtyOnHand || 0
-      acc.reserved += it.qtyReserved || 0
-      return acc
-    }, { onHand: 0, reserved: 0 })
-    const available = Math.max(0, totals.onHand - totals.reserved)
-
-    const perVariant = variants.map(v => {
-      const vs = items.filter(it => String(it.variant?._id) === String(v._id))
-      const oh = vs.reduce((s, d) => s + (d.qtyOnHand || 0), 0)
-      const rv = vs.reduce((s, d) => s + (d.qtyReserved || 0), 0)
-      return { variant: { id: v._id, sku: v.sku, title: v.title }, onHand: oh, reserved: rv, available: Math.max(0, oh - rv) }
-    })
-
-    res.json({
-      product: { id: product._id, title: product.title, slug: product.slug },
-      onHand: totals.onHand,
-      reserved: totals.reserved,
-      available,
-      perVariant
-    })
-  } catch (e) { next(e) }
 }
 
 export async function remove(req, res, next) {

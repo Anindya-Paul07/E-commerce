@@ -1,15 +1,10 @@
 import mongoose from 'mongoose';
 import Variant from '../model/variant.model.js';
-<<<<<<< HEAD:server/controller/inventory.controller.js
 import InventoryItem from '../model/inventoryItem.model.js';
 import StockMove from '../model/stockMove.model.js';
-=======
-import InventoryItem from '../model/inventory-item.model.js';
-import StockMove from '../model/stock-move.model.js';
 import WarehouseStock from '../model/warehouse-stock.model.js';
 import SellerListing from '../model/seller-listing.model.js';
 import CatalogVariant from '../model/catalog-variant.model.js';
->>>>>>> 3edd775 (added backend controllers):server/src/controller/inventory.controller.js
 import { ensureDefaultWarehouse } from '../lib/warehouse.utils.js';
 import Product from '../model/product.model.js';
 import Warehouse from '../model/warehouse.model.js';
@@ -57,11 +52,6 @@ export async function ensureDefaultVariantForProduct(productId) {
     managesInventory: true,
   });
   return v;
-}
-
-// Ensure an inventory record exists
-async function ensureInventoryRecord(variantId, warehouseId) {
-  return InventoryItem.ensure(variantId, warehouseId);
 }
 
 // Increase on-hand (for initial product stock or receiving)

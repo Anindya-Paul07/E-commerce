@@ -1,16 +1,12 @@
-import { useEffect, useRef, useState } from "react"
-import { Link } from "react-router-dom"
-import { api } from "@/lib/api"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-<<<<<<< HEAD
-import  Badge  from "@/components/ui/badge"
-=======
-import Badge from "@/components/ui/badge"
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { api } from "@/lib/api";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import Badge from "@/components/ui/badge";
 import { notify } from '@/lib/notify'
 import { useAppDispatch } from '@/store/hooks'
 import { addToCart as addToCartThunk } from '@/store/slices/cartSlice'
->>>>>>> 0eec417 (added moderinazation.)
 
 export default function Home() {
   const [items, setItems] = useState([])
@@ -75,16 +71,10 @@ export default function Home() {
   // Add to cart for cards
   async function addToCart(productId) {
     try {
-<<<<<<< HEAD
-      await api.post('/cart/add', { productId, qty: 1 })
-      window.dispatchEvent(new CustomEvent('cart:updated'))
-      refreshCart()
-=======
-      await dispatch(addToCartThunk({ productId, qty: 1 }))
->>>>>>> 0eec417 (added moderinazation.)
-      notify.success('Added to cart')
+      await dispatch(addToCartThunk({ productId, qty: 1 }));
+      notify.success('Added to cart');
     } catch (e) {
-      notify.error(e.message || 'Failed to add to cart')
+      notify.error(e.message || 'Failed to add to cart');
     }
   }
 
