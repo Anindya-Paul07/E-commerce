@@ -27,22 +27,26 @@ export default function AdminLayout() {
               <div className="text-xs text-muted-foreground">Manage your store</div>
             </div>
             <nav className="space-y-1">
-              {nav.map(({ to, label, icon: Icon, disabled }) => (
-                <NavLink
-                  key={to}
-                  to={disabled ? '#' : to}
-                  className={({ isActive }) =>
-                    [
-                      'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
-                      isActive ? 'bg-primary/10 font-medium text-primary' : 'hover:bg-muted',
-                      disabled ? 'pointer-events-none opacity-50' : '',
-                    ].join(' ')
-                  }
-                >
-                  <Icon className="h-4 w-4" />
-                  <span>{label}</span>
-                </NavLink>
-              ))}
+              {nav.map(({ to, label, icon, disabled }) => {
+                const IconComponent = icon;
+                const target = disabled ? '#' : to;
+                return (
+                  <NavLink
+                    key={to}
+                    to={target}
+                    className={({ isActive }) =>
+                      [
+                        'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+                        isActive ? 'bg-primary/10 font-medium text-primary' : 'hover:bg-muted',
+                        disabled ? 'pointer-events-none opacity-50' : '',
+                      ].join(' ')
+                    }
+                  >
+                    <IconComponent className="h-4 w-4" />
+                    <span>{label}</span>
+                  </NavLink>
+                );
+              })}
             </nav>
           </div>
         </aside>

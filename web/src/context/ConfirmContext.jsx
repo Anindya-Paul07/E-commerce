@@ -1,8 +1,7 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
-import * as AlertDialog from '@radix-ui/react-alert-dialog'
-import { Button } from '@/components/ui/button'
-
-const ConfirmContext = createContext(null)
+import { useCallback, useMemo, useRef, useState } from 'react';
+import * as AlertDialog from '@radix-ui/react-alert-dialog';
+import { Button } from '@/components/ui/button';
+import { ConfirmContext } from './confirm-context.js';
 
 export function ConfirmProvider({ children }) {
   const [state, setState] = useState({
@@ -11,45 +10,48 @@ export function ConfirmProvider({ children }) {
     description: '',
     confirmText: 'Confirm',
     cancelText: 'Cancel',
-  })
-  const resolverRef = useRef(null)
+  });
+  const resolverRef = useRef(null);
 
   const confirm = useCallback((title, options = {}) => {
     return new Promise((resolve) => {
-      resolverRef.current = resolve
+      resolverRef.current = resolve;
       setState({
         open: true,
         title,
         description: options.description || '',
         confirmText: options.confirmText || 'Confirm',
         cancelText: options.cancelText || 'Cancel',
-      })
-    })
-  }, [])
+      });
+    });
+  }, []);
 
   const close = useCallback(() => {
-    setState((prev) => ({ ...prev, open: false }))
-    resolverRef.current = null
-  }, [])
+    setState((prev) => ({ ...prev, open: false }));
+    resolverRef.current = null;
+  }, []);
 
   const handleConfirm = useCallback(() => {
-    resolverRef.current?.(true)
-    close()
-  }, [close])
+    resolverRef.current?.(true);
+    close();
+  }, [close]);
 
   const handleCancel = useCallback(() => {
-    resolverRef.current?.(false)
-    close()
-  }, [close])
+    resolverRef.current?.(false);
+    close();
+  }, [close]);
 
-  const handleOpenChange = useCallback((open) => {
-    if (!open && state.open) {
-      resolverRef.current?.(false)
-      close()
-    }
-  }, [state.open, close])
+  const handleOpenChange = useCallback(
+    (open) => {
+      if (!open && state.open) {
+        resolverRef.current?.(false);
+        close();
+      }
+    },
+    [state.open, close]
+  );
 
-  const value = useMemo(() => ({ confirm }), [confirm])
+  const value = useMemo(() => ({ confirm }), [confirm]);
 
   return (
     <ConfirmContext.Provider value={value}>
@@ -68,7 +70,9 @@ export function ConfirmProvider({ children }) {
             )}
             <div className="flex justify-end gap-2">
               <AlertDialog.Cancel asChild>
-                <Button variant="outline" onClick={handleCancel}>{state.cancelText}</Button>
+                <Button variant="outline" onClick={handleCancel}>
+                  {state.cancelText}
+                </Button>
               </AlertDialog.Cancel>
               <AlertDialog.Action asChild>
                 <Button onClick={handleConfirm}>{state.confirmText}</Button>
@@ -78,11 +82,7 @@ export function ConfirmProvider({ children }) {
         </AlertDialog.Portal>
       </AlertDialog.Root>
     </ConfirmContext.Provider>
-  )
+  );
 }
 
-export function useConfirm() {
-  const ctx = useContext(ConfirmContext)
-  if (!ctx) throw new Error('useConfirm must be used within ConfirmProvider')
-  return ctx.confirm
-}
+export default ConfirmProvider;

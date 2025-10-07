@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,20 +12,25 @@ export default function AdminOrdersPage() {
   const [err, setErr] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
-  async function load() {
-    setLoading(true); setErr('')
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErr('');
     try {
-      const q = statusFilter ? `?status=${statusFilter}` : ''
-      const { items } = await api.get(`/orders${q}`)
-      setItems(items || [])
+      const q = statusFilter ? `?status=${statusFilter}` : '';
+      const { items: fetchedItems } = await api.get(`/orders${q}`);
+      setItems(fetchedItems || []);
     } catch (e) {
-      const message = e.message || 'Failed to load'
-      setErr(message)
-      notify.error(message)
+      const message = e.message || 'Failed to load';
+      setErr(message);
+      notify.error(message);
+    } finally {
+      setLoading(false);
     }
-    finally { setLoading(false) }
-  }
-  useEffect(() => { load() }, [statusFilter])
+  }, [statusFilter]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   async function updateStatus(id, status) {
     try {

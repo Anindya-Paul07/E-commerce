@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useConfirm } from '@/context/ConfirmContext';
+import { useConfirm } from '@/context/useConfirm';
 import { notify } from '@/lib/notify';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
