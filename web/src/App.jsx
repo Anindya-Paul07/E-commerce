@@ -15,6 +15,7 @@ import AdminCategory from '@/pages/admin/category'
 import AdminOrdersPage from '@/pages/admin/order'
 import AdminWarehouses from '@/pages/admin/warehouse'
 import AdminInventory from '@/pages/admin/inventory'
+import AdminSellerReviewPage from '@/pages/admin/sellers'
 import SellerGate from '@/components/SellerGate'
 import SellerDashboard from '@/pages/seller/dashboard'
 
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="/admin/products" element={<AdminProducts />} />
           <Route path="/admin/categories" element={<AdminCategory />} />
           <Route path="/admin/orders" element={<AdminOrdersPage />} />
+          <Route path="/admin/sellers" element={<AdminSellerReviewPage />} />
           <Route path="/admin/warehouses" element={<AdminWarehouses />} />
           <Route path="/admin/inventory" element={<AdminInventory />} />
         </Route>
