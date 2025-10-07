@@ -1,6 +1,9 @@
 import Seller from '../model/seller.model.js';
 import Shop from '../model/shop.model.js';
 import User from '../model/user.model.js';
+import Order from '../model/order.model.js';
+import SellerListing from '../model/seller-listing.model.js';
+import WarehouseStock from '../model/warehouse-stock.model.js';
 import { toPublicUrl, cleanupReplacedUploads } from '../lib/upload.js';
 
 function slugify(input) {
@@ -231,6 +234,98 @@ export async function submitSellerApplication(req, res, next) {
     const shopPayload = await Shop.findOne({ seller: seller._id }).lean();
 
     res.status(isNew ? 201 : 200).json({ seller: payload, shop: shopPayload });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getSellerStats(req, res, next) {
+  try {
+    const seller = await Seller.findOne({ user: req.user._id });
+    if (!seller) return res.status(404).json({ error: 'Seller profile not found' });
+
+    const sellerId = seller._id;
+    const sellerIdStr = sellerId.toString();
+
+    const orders = await Order.find({ 'items.seller': sellerId }, { items: 1 }).lean();
+
+    let totalOrders = 0;
+    let itemsSold = 0;
+    let pendingFulfillment = 0;
+    let grossRevenue = 0;
+
+    orders.forEach((order) => {
+      let contributesToOrder = false;
+      (order.items || []).forEach((item) => {
+        if (!item?.seller || item.seller.toString() !== sellerIdStr) return;
+        contributesToOrder = true;
+        const qty = Number(item.qty || 0);
+        const price = Number(item.price || 0);
+        itemsSold += qty;
+        grossRevenue += price * qty;
+        if (['pending', 'allocated'].includes(item.fulfillmentStatus)) pendingFulfillment += 1;
+      });
+      if (contributesToOrder) totalOrders += 1;
+    });
+
+    const [totalListings, activeListings] = await Promise.all([
+      SellerListing.countDocuments({ seller: sellerId }),
+      SellerListing.countDocuments({ seller: sellerId, status: 'active', moderationState: 'approved' }),
+    ]);
+
+    const stockSummary = await WarehouseStock.aggregate([
+      {
+        $lookup: {
+          from: 'sellerlistings',
+          localField: 'listing',
+          foreignField: '_id',
+          as: 'listing',
+        },
+      },
+      { $unwind: '$listing' },
+      { $match: { 'listing.seller': sellerId } },
+      {
+        $group: {
+          _id: null,
+          totalOnHand: { $sum: '$qtyOnHand' },
+          totalReserved: { $sum: '$qtyReserved' },
+          lowStock: {
+            $sum: {
+              $cond: [
+                {
+                  $lte: [
+                    { $subtract: ['$qtyOnHand', '$qtyReserved'] },
+                    { $ifNull: ['$lowStockThreshold', 0] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    const inventory = stockSummary[0] || { totalOnHand: 0, totalReserved: 0, lowStock: 0 };
+
+    res.json({
+      orders: {
+        total: totalOrders,
+        itemsSold,
+        pendingFulfillment,
+        grossRevenue: Number(grossRevenue.toFixed(2)),
+      },
+      listings: {
+        total: totalListings,
+        active: activeListings,
+      },
+      inventory: {
+        totalOnHand: inventory.totalOnHand || 0,
+        totalReserved: inventory.totalReserved || 0,
+        lowStock: inventory.lowStock || 0,
+      },
+    });
   } catch (error) {
     next(error);
   }

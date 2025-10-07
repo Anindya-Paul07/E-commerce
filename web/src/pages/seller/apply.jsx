@@ -80,7 +80,7 @@ export default function SellerApplicationPage() {
     try {
       setSubmitting(true)
       const formData = buildFormData(values, files)
-      await api.postForm('/seller/apply', formData)
+      await api.postForm('/sellers/apply', formData)
       setSuccess(true)
       notify.success('Application submitted for review')
     } catch (error) {

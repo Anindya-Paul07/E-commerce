@@ -7,5 +7,6 @@ export function useMe() {
   const status = useAppSelector((state) => state.session.status);
   const refresh = () => dispatch(fetchSession());
   const isAdmin = !!user?.roles?.includes('admin');
-  return { me: user, isAdmin, loading: status === 'loading', refresh };
+  const isSeller = !!user?.roles?.includes('seller');
+  return { me: user, isAdmin, isSeller, loading: status === 'loading', refresh };
 }

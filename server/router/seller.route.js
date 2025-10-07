@@ -1,13 +1,15 @@
 import { Router } from 'express';
 import passport from 'passport';
-import { submitSellerApplication, getMySellerProfile } from '../controller/seller.controller.js';
+import { submitSellerApplication, getMySellerProfile, getSellerStats } from '../controller/seller.controller.js';
 import { upload } from '../lib/upload.js';
+import { rolesRequired } from '../middlewares/rolesRequired.js';
 
 const router = Router();
 
 router.use(passport.authenticate('jwt', { session: false }));
 
 router.get('/me', getMySellerProfile);
+router.get('/stats', rolesRequired(['seller']), getSellerStats);
 const assetUpload = upload.fields([
   { name: 'shopLogo', maxCount: 1 },
   { name: 'shopCover', maxCount: 1 },

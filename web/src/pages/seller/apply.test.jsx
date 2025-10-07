@@ -78,7 +78,8 @@ describe('SellerApplicationPage', () => {
     await user.click(screen.getByRole('button', { name: /submit application/i }))
 
     await waitFor(() => expect(api.postForm).toHaveBeenCalledTimes(1))
-    const [, formData] = api.postForm.mock.calls[0]
+    const [path, formData] = api.postForm.mock.calls[0]
+    expect(path).toBe('/sellers/apply')
     expect(formData.get('displayName')).toBe('Acme Sellers')
     expect(JSON.parse(formData.get('contact'))).toEqual({ email: 'owner@acme.test' })
     expect(notify.success).toHaveBeenCalled()
