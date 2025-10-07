@@ -70,3 +70,113 @@ export const MOCK_TESTIMONIALS = [
     role: 'Director, Lumen Goods',
   },
 ];
+
+export const MOCK_HOMEPAGE_CONTENT = {
+  hero: {
+    eyebrow: 'Marketplace reimagined',
+    title: 'A flagship experience for modern multi-brand commerce',
+    subtitle: 'Discover limited-run capsules and design-led essentials curated by our merchant team.',
+    ctaLabel: 'Browse featured drops',
+    ctaHref: '/collections/featured',
+    backgroundImage: '',
+    enabled: true,
+  },
+  carousel: [],
+  notification: {
+    message: '',
+    type: 'info',
+    ctaLabel: '',
+    ctaHref: '',
+    enabled: false,
+  },
+  couponBlocks: [],
+  categoryCapsules: {
+    heading: {
+      eyebrow: 'Curated universes',
+      title: 'Shop by editorial universe',
+      subtitle: '',
+    },
+    cta: { label: 'Explore all categories', href: '/categories' },
+    items: MOCK_CATEGORIES.map((category, index) => ({
+      name: category.name,
+      description: 'Discover limited-run edits crafted by our merchant studio.',
+      href: `/category/${category.slug}`,
+      badge: category.sortOrder ? `Story ${category.sortOrder}` : 'Featured',
+      mediaUrl: '',
+      order: index,
+    })),
+  },
+  brandHighlights: {
+    heading: {
+      eyebrow: 'Partner studios',
+      title: 'Brands shaping the platform',
+      subtitle: '',
+    },
+    items: MOCK_BRANDS.map((brand, index) => ({
+      name: brand.name,
+      description: brand.description,
+      logoUrl: brand.logo,
+      href: '#',
+      order: index,
+    })),
+  },
+  testimonials: {
+    heading: {
+      eyebrow: 'Seller voices',
+      title: 'Why creators choose our marketplace',
+      subtitle: '',
+    },
+    items: MOCK_TESTIMONIALS.map((testimonial, index) => ({
+      ...testimonial,
+      avatarUrl: '',
+      order: index,
+    })),
+  },
+  sellerCta: {
+    heading: 'Launch your flagship inside a multi-brand icon',
+    body: 'We champion boutique labels with premium storytelling, unified logistics, and concierge support.',
+    primaryCta: { label: 'Submit seller application', href: '/seller/apply' },
+    secondaryCta: { label: 'Seller dashboard', href: '/seller/dashboard' },
+  },
+  theme: {
+    activePreset: 'daylight',
+    availablePresets: [],
+    overrides: {},
+  },
+};
+
+export const MOCK_SELLER_PAGE_CONTENT = {
+  hero: {
+    eyebrow: 'Seller collective',
+    title: 'Launch your flagship inside a multi-brand icon',
+    subtitle: 'Partner with a concierge marketplace curated for design-led boutiques.',
+    backgroundImage: '',
+    primaryCta: { label: 'Start application', href: '/seller/apply' },
+    secondaryCta: { label: 'Review requirements', href: '/seller/guidelines' },
+  },
+  pillars: [
+    { title: 'Merchandising', description: 'Dedicated editors to craft your brand narrative.', icon: 'sparkles', order: 0 },
+    { title: 'Fulfilment', description: 'Unified logistics and SLA tracking baked in.', icon: 'truck', order: 1 },
+  ],
+  callouts: [],
+  testimonials: MOCK_TESTIMONIALS.map((testimonial, index) => ({
+    ...testimonial,
+    avatarUrl: '',
+    order: index,
+  })),
+  faqs: [
+    { question: 'How long does approval take?', answer: 'Most applications receive a response in under 5 business days.', order: 0 },
+  ],
+  contact: {
+    headline: 'Need help with your application?',
+    body: 'Our merchant success team is here to support you with onboarding, product setup, and fulfilment guidance.',
+    email: 'onboard@flux-commerce.test',
+    phone: '+1 555 010 2025',
+    cta: { label: 'Contact merchant team', href: 'mailto:onboard@flux-commerce.test' },
+  },
+  theme: {
+    heroGradient: 'linear-gradient(135deg, rgba(250,250,250,0.75), rgba(176,208,255,0.35))',
+    accentColor: '#6366f1',
+    backgroundStyle: 'radial-gradient(circle at top, rgba(99,102,241,0.12), transparent 55%)',
+  },
+};

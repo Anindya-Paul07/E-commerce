@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAppSelector } from '@/store/hooks'
 import { api } from '@/lib/api'
 import { notify } from '@/lib/notify'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { MOCK_SELLER_PAGE_CONTENT } from '@/data/mockStorefront'
 
 const EMAIL_REGEX = /.+@.+\..+/
 
@@ -30,6 +31,20 @@ function buildFormData(values, files) {
   return formData
 }
 
+function hydrateSellerCms(raw = {}) {
+  return {
+    hero: { ...MOCK_SELLER_PAGE_CONTENT.hero, ...(raw.hero || {}) },
+    pillars: Array.isArray(raw.pillars) && raw.pillars.length ? raw.pillars : MOCK_SELLER_PAGE_CONTENT.pillars,
+    callouts: Array.isArray(raw.callouts) ? raw.callouts : MOCK_SELLER_PAGE_CONTENT.callouts,
+    testimonials: Array.isArray(raw.testimonials) && raw.testimonials.length
+      ? raw.testimonials
+      : MOCK_SELLER_PAGE_CONTENT.testimonials,
+    faqs: Array.isArray(raw.faqs) && raw.faqs.length ? raw.faqs : MOCK_SELLER_PAGE_CONTENT.faqs,
+    contact: { ...MOCK_SELLER_PAGE_CONTENT.contact, ...(raw.contact || {}) },
+    theme: { ...MOCK_SELLER_PAGE_CONTENT.theme, ...(raw.theme || {}) },
+  }
+}
+
 export default function SellerApplicationPage() {
   const user = useAppSelector((state) => state.session.user)
   const [values, setValues] = useState({
@@ -45,6 +60,28 @@ export default function SellerApplicationPage() {
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [cms, setCms] = useState(MOCK_SELLER_PAGE_CONTENT)
+  const [cmsLoading, setCmsLoading] = useState(true)
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      try {
+        setCmsLoading(true)
+        const { content } = await api.get('/seller-page')
+        if (!active) return
+        if (content) setCms(hydrateSellerCms(content))
+      } catch (error) {
+        if (!active) return
+        setCms(MOCK_SELLER_PAGE_CONTENT)
+      } finally {
+        if (active) setCmsLoading(false)
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [])
 
   const isLoggedIn = useMemo(() => Boolean(user), [user])
 
@@ -97,20 +134,61 @@ export default function SellerApplicationPage() {
     return (
       <div className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.12),_transparent_55%)]" aria-hidden="true" />
-        <div className="container relative py-12">
+        <div className="container relative space-y-10 py-12">
           <Card className="mx-auto max-w-2xl border border-primary/30 bg-card/95 shadow-xl backdrop-blur">
             <CardHeader className="space-y-3">
-              <CardTitle className="text-3xl font-semibold">Become a marketplace seller</CardTitle>
+              <CardTitle className="text-3xl font-semibold">{cms.hero?.title || 'Become a marketplace seller'}</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Sign in to access the application portal, share your brand story, and unlock premium merchandising across our multivendor flagship.
+                {cms.hero?.subtitle ||
+                  'Sign in to access the application portal, share your brand story, and unlock premium merchandising across our multivendor flagship.'}
               </p>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-3">
               <Button asChild size="lg">
-                <Link to="/login">Sign in to continue</Link>
+                <Link to="/login">{cms.hero?.primaryCta?.label || 'Sign in to continue'}</Link>
               </Button>
               <Button asChild size="lg" variant="outline">
-                <Link to="/register">Create a new account</Link>
+                <Link to="/register">{cms.hero?.secondaryCta?.label || 'Create a new account'}</Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <SectionGrid title="Marketplace pillars" description="Highlights from our seller program" items={cms.pillars} />
+
+          {cms.testimonials?.length !== 0 && (
+            <Card className="mx-auto max-w-3xl border bg-card/90 backdrop-blur">
+              <CardHeader>
+                <CardTitle>Seller testimonials</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {cms.testimonials.slice(0, 2).map((testimonial, index) => (
+                  <blockquote key={index} className="rounded-xl border bg-background/70 px-4 py-3 text-sm text-muted-foreground">
+                    “{testimonial.quote}”
+                    <footer className="mt-2 text-xs text-muted-foreground/80">
+                      <span className="font-semibold text-foreground">{testimonial.name}</span>
+                      {testimonial.role ? ` · ${testimonial.role}` : ''}
+                    </footer>
+                  </blockquote>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="mx-auto max-w-2xl border bg-card/90 backdrop-blur">
+            <CardHeader>
+              <CardTitle>Questions?</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">{cms.contact.headline}</p>
+              <p>{cms.contact.body}</p>
+              <div className="space-y-1">
+                <p>Email: <a className="text-primary hover:underline" href={`mailto:${cms.contact.email}`}>{cms.contact.email}</a></p>
+                {cms.contact.phone && <p>Phone: {cms.contact.phone}</p>}
+              </div>
+              <Button asChild variant="outline" className="mt-2">
+                <Link to={cms.contact.cta?.href || 'mailto:onboard@flux-commerce.test'}>
+                  {cms.contact.cta?.label || 'Contact merchant team'}
+                </Link>
               </Button>
             </CardContent>
           </Card>
@@ -125,9 +203,10 @@ export default function SellerApplicationPage() {
       <div className="container relative space-y-10 py-12">
         <div className="mx-auto max-w-3xl space-y-4 text-center">
           <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Seller application</p>
-          <h1 className="text-3xl font-semibold text-foreground sm:text-4xl">Share your brand, join the flagship collective</h1>
+          <h1 className="text-3xl font-semibold text-foreground sm:text-4xl">{cms.hero?.title || 'Share your brand, join the flagship collective'}</h1>
           <p className="text-sm text-muted-foreground">
-            Tell us about your label, merchandising vision, and fulfilment readiness. Our merchant team reviews every submission with a meticulous eye for detail.
+            {cms.hero?.subtitle ||
+              'Tell us about your label, merchandising vision, and fulfilment readiness. Our merchant team reviews every submission with a meticulous eye for detail.'}
           </p>
         </div>
         <Card className="mx-auto max-w-3xl border border-primary/10 bg-card/95 shadow-2xl backdrop-blur">
@@ -141,142 +220,180 @@ export default function SellerApplicationPage() {
               encType="multipart/form-data"
               noValidate
             >
-            {success && (
-              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-                Thanks! Your application was submitted. We will review it shortly.
-              </div>
-            )}
+              {success && (
+                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                  Thanks! Your application was submitted. We will review it shortly.
+                </div>
+              )}
 
-            {errors.api && (
-              <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-                {errors.api}
-              </p>
-            )}
+              {errors.api && (
+                <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                  {errors.api}
+                </p>
+              )}
 
-            <div className="grid gap-2">
-              <label className="text-sm font-medium" htmlFor="displayName">Display name *</label>
-              <input
-                id="displayName"
-                name="displayName"
-                value={values.displayName}
-                onChange={handleChange}
-                className="h-10 rounded-md border bg-background px-3"
-                placeholder="Acme Sellers"
-                required
-              />
-              {errors.displayName && <p className="text-xs text-red-600">{errors.displayName}</p>}
-            </div>
-
-            <div className="grid gap-2">
-              <label className="text-sm font-medium" htmlFor="legalName">Legal business name</label>
-              <input
-                id="legalName"
-                name="legalName"
-                value={values.legalName}
-                onChange={handleChange}
-                className="h-10 rounded-md border bg-background px-3"
-                placeholder="Acme Corp Ltd"
-              />
-            </div>
-
-            <div className="grid gap-2 sm:grid-cols-2">
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="contactEmail">Contact email</label>
+                <label className="text-sm font-medium" htmlFor="displayName">Display name *</label>
                 <input
-                  id="contactEmail"
-                  name="contactEmail"
-                  type="email"
-                  value={values.contactEmail}
+                  id="displayName"
+                  name="displayName"
+                  value={values.displayName}
                   onChange={handleChange}
                   className="h-10 rounded-md border bg-background px-3"
-                  placeholder="you@example.com"
+                  placeholder="Acme Sellers"
+                  required
                 />
-                {errors.contactEmail && <p className="text-xs text-red-600">{errors.contactEmail}</p>}
+                {errors.displayName && <p className="text-xs text-red-600">{errors.displayName}</p>}
               </div>
+
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="contactPhone">Contact phone</label>
+                <label className="text-sm font-medium" htmlFor="legalName">Legal business name</label>
                 <input
-                  id="contactPhone"
-                  name="contactPhone"
-                  value={values.contactPhone}
+                  id="legalName"
+                  name="legalName"
+                  value={values.legalName}
                   onChange={handleChange}
                   className="h-10 rounded-md border bg-background px-3"
-                  placeholder="+1 555 000 1234"
+                  placeholder="Acme Corp Ltd"
                 />
               </div>
-            </div>
 
-            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium" htmlFor="contactEmail">Contact email</label>
+                  <input
+                    id="contactEmail"
+                    name="contactEmail"
+                    type="email"
+                    value={values.contactEmail}
+                    onChange={handleChange}
+                    className="h-10 rounded-md border bg-background px-3"
+                    placeholder="you@example.com"
+                  />
+                  {errors.contactEmail && <p className="text-xs text-red-600">{errors.contactEmail}</p>}
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium" htmlFor="contactPhone">Contact phone</label>
+                  <input
+                    id="contactPhone"
+                    name="contactPhone"
+                    value={values.contactPhone}
+                    onChange={handleChange}
+                    className="h-10 rounded-md border bg-background px-3"
+                    placeholder="+1 555 000 1234"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium" htmlFor="shopName">Shop name</label>
+                  <input
+                    id="shopName"
+                    name="shopName"
+                    value={values.shopName}
+                    onChange={handleChange}
+                    className="h-10 rounded-md border bg-background px-3"
+                    placeholder="Acme Flagship"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium" htmlFor="shopTagline">Shop tagline</label>
+                  <input
+                    id="shopTagline"
+                    name="shopTagline"
+                    value={values.shopTagline}
+                    onChange={handleChange}
+                    className="h-10 rounded-md border bg-background px-3"
+                    placeholder="Sustainable essentials for every day"
+                  />
+                </div>
+              </div>
+
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="shopName">Shop name</label>
-                <input
-                  id="shopName"
-                  name="shopName"
-                  value={values.shopName}
+                <label className="text-sm font-medium" htmlFor="notes">Notes for reviewers</label>
+                <textarea
+                  id="notes"
+                  name="notes"
+                  value={values.notes}
                   onChange={handleChange}
-                  className="h-10 rounded-md border bg-background px-3"
-                  placeholder="Acme Flagship"
+                  className="min-h-[120px] rounded-md border bg-background px-3 py-2"
+                  placeholder="Tell us about your catalog, fulfilment readiness, etc."
                 />
               </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="shopTagline">Shop tagline</label>
-                <input
-                  id="shopTagline"
-                  name="shopTagline"
-                  value={values.shopTagline}
-                  onChange={handleChange}
-                  className="h-10 rounded-md border bg-background px-3"
-                  placeholder="Sustainable essentials for every day"
-                />
-              </div>
-            </div>
 
-            <div className="grid gap-2">
-              <label className="text-sm font-medium" htmlFor="notes">Notes for reviewers</label>
-              <textarea
-                id="notes"
-                name="notes"
-                value={values.notes}
-                onChange={handleChange}
-                className="min-h-[120px] rounded-md border bg-background px-3 py-2"
-                placeholder="Tell us about your catalog, fulfilment readiness, etc."
-              />
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="shopLogo">Shop logo</label>
-                <input
-                  id="shopLogo"
-                  name="shopLogo"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="text-sm"
-                />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium" htmlFor="shopLogo">Shop logo</label>
+                  <input
+                    id="shopLogo"
+                    name="shopLogo"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="text-sm"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium" htmlFor="shopCover">Shop cover</label>
+                  <input
+                    id="shopCover"
+                    name="shopCover"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="text-sm"
+                  />
+                </div>
               </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="shopCover">Shop cover</label>
-                <input
-                  id="shopCover"
-                  name="shopCover"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="text-sm"
-                />
-              </div>
-            </div>
 
-            <div className="flex justify-end">
-              <Button type="submit" disabled={submitting}>
-                {submitting ? 'Submitting…' : 'Submit application'}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+              <div className="flex justify-end">
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? 'Submitting…' : 'Submit application'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <SectionGrid title="Seller pillars" description="What you can expect as a marketplace partner." items={cms.pillars} />
+
+        {cms.faqs.length > 0 && (
+          <Card className="mx-auto max-w-3xl border bg-card/90 backdrop-blur">
+            <CardHeader>
+              <CardTitle>Seller FAQs</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-muted-foreground">
+              {cms.faqs.map((faq, index) => (
+                <details key={index} className="rounded-lg border bg-background/70 px-4 py-2">
+                  <summary className="cursor-pointer text-foreground">{faq.question}</summary>
+                  <p className="mt-2 text-xs text-muted-foreground">{faq.answer}</p>
+                </details>
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
+  )
+}
+
+function SectionGrid({ title, description, items }) {
+  if (!items || items.length === 0) return null
+  return (
+    <Card className="mx-auto max-w-4xl border bg-card/90 backdrop-blur">
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+      </CardHeader>
+      <CardContent className="grid gap-4 md:grid-cols-2">
+        {items.map((item, index) => (
+          <div key={index} className="rounded-lg border bg-background/70 px-4 py-3">
+            <p className="text-sm font-semibold text-foreground">{item.title || 'Untitled'}</p>
+            {item.description && <p className="text-xs text-muted-foreground">{item.description}</p>}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   )
 }

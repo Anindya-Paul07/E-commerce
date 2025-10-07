@@ -10,6 +10,7 @@ import sessionReducer from '@/store/slices/sessionSlice.js'
 
 vi.mock('@/lib/api', () => ({
   api: {
+    get: vi.fn(),
     postForm: vi.fn(),
   },
 }))
@@ -54,6 +55,7 @@ function renderPage({ user } = {}) {
 describe('SellerApplicationPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    api.get.mockResolvedValue({ content: {} })
   })
 
   it('shows a validation error when the display name is missing', async () => {
@@ -86,11 +88,11 @@ describe('SellerApplicationPage', () => {
     expect(screen.getByText(/application was submitted/i)).toBeInTheDocument()
   })
 
-  it('prompts unauthenticated visitors to sign in', () => {
+  it('prompts unauthenticated visitors to sign in', async () => {
     renderPage({ user: null })
 
-    expect(screen.getByRole('heading', { name: /become a marketplace seller/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /sign in to continue/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /launch your flagship/i })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: /start application/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /submit application/i })).not.toBeInTheDocument()
   })
 })

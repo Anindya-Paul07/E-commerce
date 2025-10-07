@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,7 +7,40 @@ import Badge from '@/components/ui/badge'
 import { notify } from '@/lib/notify'
 import { useAppDispatch } from '@/store/hooks'
 import { addToCart as addToCartThunk } from '@/store/slices/cartSlice'
-import { MOCK_BRANDS, MOCK_CATEGORIES, MOCK_PRODUCTS, MOCK_TESTIMONIALS } from '@/data/mockStorefront'
+import {
+  MOCK_BRANDS,
+  MOCK_CATEGORIES,
+  MOCK_PRODUCTS,
+  MOCK_TESTIMONIALS,
+  MOCK_HOMEPAGE_CONTENT,
+} from '@/data/mockStorefront'
+
+function hydrateCms(raw = {}) {
+  const fallback = MOCK_HOMEPAGE_CONTENT
+  return {
+    hero: { ...fallback.hero, ...(raw.hero || {}) },
+    carousel: Array.isArray(raw.carousel) ? raw.carousel : fallback.carousel,
+    notification: { ...fallback.notification, ...(raw.notification || {}) },
+    couponBlocks: Array.isArray(raw.couponBlocks) ? raw.couponBlocks : fallback.couponBlocks,
+    categoryCapsules: {
+      heading: { ...fallback.categoryCapsules.heading, ...(raw.categoryCapsules?.heading || {}) },
+      cta: { ...fallback.categoryCapsules.cta, ...(raw.categoryCapsules?.cta || {}) },
+      items: Array.isArray(raw.categoryCapsules?.items)
+        ? raw.categoryCapsules.items
+        : fallback.categoryCapsules.items,
+    },
+    brandHighlights: {
+      heading: { ...fallback.brandHighlights.heading, ...(raw.brandHighlights?.heading || {}) },
+      items: Array.isArray(raw.brandHighlights?.items) ? raw.brandHighlights.items : fallback.brandHighlights.items,
+    },
+    testimonials: {
+      heading: { ...fallback.testimonials.heading, ...(raw.testimonials?.heading || {}) },
+      items: Array.isArray(raw.testimonials?.items) ? raw.testimonials.items : fallback.testimonials.items,
+    },
+    sellerCta: { ...fallback.sellerCta, ...(raw.sellerCta || {}) },
+    theme: { ...fallback.theme, ...(raw.theme || {}) },
+  }
+}
 
 export default function Home() {
   const [items, setItems] = useState(MOCK_PRODUCTS)
@@ -17,16 +50,22 @@ export default function Home() {
   const [cats, setCats] = useState(MOCK_CATEGORIES)
   const [catsLoading, setCatsLoading] = useState(true)
   const [catsErr, setCatsErr] = useState('')
+
+  const [cms, setCms] = useState(MOCK_HOMEPAGE_CONTENT)
+  const [cmsLoading, setCmsLoading] = useState(true)
+  const [themePresets, setThemePresets] = useState([])
+  const [activeTheme, setActiveTheme] = useState('daylight')
+
   const dispatch = useAppDispatch()
 
-  // Dropdown state
   const [showCatMenu, setShowCatMenu] = useState(false)
   const catMenuRef = useRef(null)
   const productsRef = useRef(null)
 
   useEffect(() => {
-    (async () => {
+    ;(async () => {
       try {
+        setLoading(true)
         const { items } = await api.get('/products?limit=8&status=active&sort=-createdAt')
         if (Array.isArray(items) && items.length) {
           setItems(items)
@@ -41,8 +80,9 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    (async () => {
+    ;(async () => {
       try {
+        setCatsLoading(true)
         const { items } = await api.get('/categories?limit=20')
         if (Array.isArray(items) && items.length) setCats(items)
       } catch (e) {
@@ -54,13 +94,44 @@ export default function Home() {
     })()
   }, [])
 
-  // Close dropdown on outside click / Esc
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      try {
+        setCmsLoading(true)
+        const [{ content }, themes] = await Promise.all([
+          api.get('/homepage'),
+          api.get('/themes').catch(() => ({ presets: [], activePreset: 'daylight' })),
+        ])
+        if (!active) return
+        if (content) {
+          setCms(hydrateCms(content))
+          if (content.theme?.activePreset) setActiveTheme(content.theme.activePreset)
+        } else {
+          setCms(MOCK_HOMEPAGE_CONTENT)
+        }
+        if (themes?.presets) setThemePresets(themes.presets)
+        if (themes?.activePreset) setActiveTheme(themes.activePreset)
+      } catch (error) {
+        if (!active) return
+        setCms(MOCK_HOMEPAGE_CONTENT)
+      } finally {
+        if (active) setCmsLoading(false)
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [])
+
   useEffect(() => {
     function onDocClick(e) {
       if (!showCatMenu) return
       if (catMenuRef.current && !catMenuRef.current.contains(e.target)) setShowCatMenu(false)
     }
-    function onKey(e) { if (e.key === 'Escape') setShowCatMenu(false) }
+    function onKey(e) {
+      if (e.key === 'Escape') setShowCatMenu(false)
+    }
     document.addEventListener('mousedown', onDocClick)
     document.addEventListener('keydown', onKey)
     return () => {
@@ -69,17 +140,33 @@ export default function Home() {
     }
   }, [showCatMenu])
 
+  const categoriesSection = cms.categoryCapsules?.items?.length
+    ? cms.categoryCapsules.items
+    : MOCK_HOMEPAGE_CONTENT.categoryCapsules.items
+  const brandSection = cms.brandHighlights?.items?.length
+    ? cms.brandHighlights.items
+    : MOCK_HOMEPAGE_CONTENT.brandHighlights.items
+  const testimonialsSection = cms.testimonials?.items?.length
+    ? cms.testimonials.items
+    : MOCK_HOMEPAGE_CONTENT.testimonials.items
+
+  const heroTheme = useMemo(() => {
+    const preset = themePresets.find((p) => p.key === activeTheme)
+    const gradient = cms.theme?.overrides?.['--hero-background'] || preset?.palette?.gradient
+    const accent = preset?.palette?.accent || '#6366f1'
+    return { gradient, accent }
+  }, [cms.theme, themePresets, activeTheme])
+
   function scrollToProducts() {
     productsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  // Add to cart for cards
   async function addToCart(productId) {
     try {
-      await dispatch(addToCartThunk({ productId, qty: 1 }));
-      notify.success('Added to cart');
+      await dispatch(addToCartThunk({ productId, qty: 1 }))
+      notify.success('Added to cart')
     } catch (e) {
-      notify.error(e.message || 'Failed to add to cart');
+      notify.error(e.message || 'Failed to add to cart')
     }
   }
 
@@ -87,25 +174,30 @@ export default function Home() {
     <div className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.12),_transparent_55%)]" />
       <div className="container relative space-y-16 py-14">
-        {/* Luxe hero */}
-        <section className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-primary/15 via-background to-background px-8 py-14 shadow-xl sm:px-12 lg:flex lg:items-center lg:gap-12">
-          <div className="absolute -right-20 top-1/2 hidden h-[32rem] w-[32rem] -translate-y-1/2 rounded-full bg-primary/10 blur-3xl lg:block" aria-hidden="true" />
+        <section
+          className="relative overflow-hidden rounded-3xl border px-8 py-14 shadow-xl sm:px-12 lg:flex lg:items-center lg:gap-12"
+          style={{ background: heroTheme.gradient || 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(14,165,233,0.1))' }}
+        >
+          <div className="absolute -right-20 top-1/2 hidden h-[32rem] w-[32rem] -translate-y-1/2 rounded-full bg-primary/20 blur-3xl lg:block" aria-hidden="true" />
           <div className="relative z-10 space-y-6 lg:max-w-2xl">
             <p className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-1 text-xs font-medium uppercase tracking-[0.2em] text-primary">
-              Marketplace reimagined
+              {cms.hero?.eyebrow || 'Marketplace reimagined'}
             </p>
             <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-              A flagship experience for modern multi-brand commerce
+              {cms.hero?.title || 'A flagship experience for modern multi-brand commerce'}
             </h1>
             <p className="max-w-xl text-base text-muted-foreground sm:text-lg">
-              Discover limited-run capsules, design-led essentials, and visionary labels powered by our curated seller collective. Shop the future of retail with concierge fulfilment and immersive storytelling.
+              {cms.hero?.subtitle ||
+                'Discover limited-run capsules, design-led essentials, and visionary labels powered by our curated seller collective.'}
             </p>
             <div className="flex flex-wrap gap-3">
               <Button size="lg" onClick={scrollToProducts}>
-                Browse featured drops
+                {cms.hero?.ctaLabel || 'Browse featured drops'}
               </Button>
               <Button asChild size="lg" variant="outline">
-                <Link to="/seller/apply">Become a marketplace seller</Link>
+                <Link to={cms.hero?.secondaryCta?.href || '/seller/apply'}>
+                  {cms.hero?.secondaryCta?.label || 'Become a marketplace seller'}
+                </Link>
               </Button>
               <div className="relative" ref={catMenuRef}>
                 <Button
@@ -122,11 +214,7 @@ export default function Home() {
                   </svg>
                 </Button>
                 {showCatMenu && (
-                  <div
-                    role="menu"
-                    tabIndex={-1}
-                    className="absolute z-50 mt-2 w-64 overflow-hidden rounded-xl border bg-card/95 backdrop-blur shadow-2xl"
-                  >
+                  <div role="menu" tabIndex={-1} className="absolute z-50 mt-2 w-64 overflow-hidden rounded-xl border bg-card/95 backdrop-blur shadow-2xl">
                     <div className="border-b px-4 py-3 text-sm font-semibold text-muted-foreground">Shop by narrative</div>
                     {catsLoading && <div className="px-4 py-4 text-sm text-muted-foreground">Loading stories…</div>}
                     {!catsLoading && catsErr && <div className="px-4 py-4 text-sm text-red-500">{catsErr}</div>}
@@ -156,7 +244,10 @@ export default function Home() {
           <div className="relative z-10 mt-10 w-full max-w-xl flex-1 lg:mt-0">
             <div className="overflow-hidden rounded-2xl border bg-card shadow-2xl">
               <img
-                src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80"
+                src={
+                  cms.hero?.backgroundImage ||
+                  'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80'
+                }
                 alt="Flagship showroom"
                 className="aspect-[5/4] w-full object-cover"
               />
@@ -172,31 +263,54 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Category capsules */}
+        {cms.notification?.enabled && (
+          <div className="rounded-2xl border bg-card/80 px-6 py-4 text-sm shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-medium text-foreground">{cms.notification.message}</p>
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Announcement</p>
+              </div>
+              {(cms.notification.ctaLabel || cms.notification.ctaHref) && (
+                <Button asChild size="sm" variant="outline">
+                  <Link to={cms.notification.ctaHref || '#'}>{cms.notification.ctaLabel || 'Learn more'}</Link>
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
         <section className="space-y-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">Curated universes</p>
-              <h2 className="text-2xl font-semibold">Shop by editorial universe</h2>
+              <h2 className="text-2xl font-semibold">{cms.categoryCapsules?.heading?.title || 'Shop by editorial universe'}</h2>
             </div>
-            <Button type="button" variant="ghost" className="self-start border border-input" onClick={scrollToProducts}>
-              Explore all categories
+            <Button
+              type="button"
+              variant="ghost"
+              className="self-start border border-input"
+              onClick={scrollToProducts}
+            >
+              {cms.categoryCapsules?.cta?.label || 'Explore all categories'}
             </Button>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {cats.slice(0, 4).map((category) => (
-              <Card key={category._id} className="group relative overflow-hidden border bg-gradient-to-br from-background via-background to-primary/5">
-                <div className="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ background: 'radial-gradient(circle at top right, rgba(99,102,241,0.18), transparent 55%)' }} />
+            {(cmsLoading ? MOCK_HOMEPAGE_CONTENT.categoryCapsules.items : categoriesSection).slice(0, 4).map((category) => (
+              <Card key={`${category.name}-${category.order}`} className="group relative overflow-hidden border bg-gradient-to-br from-background via-background to-primary/5">
+                <div
+                  className="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                  style={{ background: 'radial-gradient(circle at top right, rgba(99,102,241,0.18), transparent 55%)' }}
+                />
                 <CardHeader className="relative z-10 pb-4">
                   <CardTitle className="text-lg font-semibold text-foreground">{category.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">Artfully merchandised with capsule drops and creator edits.</p>
+                  <p className="text-sm text-muted-foreground">{category.description}</p>
                 </CardHeader>
                 <CardContent className="relative z-10 flex items-center justify-between">
                   <Badge variant="outline" className="rounded-full border-primary/40 bg-primary/10 text-xs uppercase tracking-[0.2em] text-primary">
-                    {category.sortOrder ? `Story ${category.sortOrder}` : 'Featured'}
+                    {category.badge || 'Featured'}
                   </Badge>
                   <Button asChild size="sm" variant="ghost" className="font-medium hover:text-primary">
-                    <Link to={`/category/${category.slug}`}>View curation</Link>
+                    <Link to={category.href || '#'}>View curation</Link>
                   </Button>
                 </CardContent>
               </Card>
@@ -204,7 +318,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Featured products */}
         <section ref={productsRef} id="products" className="space-y-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -273,7 +386,6 @@ export default function Home() {
           )}
         </section>
 
-        {/* Partnered brands */}
         <section className="space-y-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -285,11 +397,11 @@ export default function Home() {
             </Button>
           </div>
           <div className="grid gap-6 lg:grid-cols-3">
-            {MOCK_BRANDS.map((brand) => (
+            {(cmsLoading ? MOCK_BRANDS : brandSection).slice(0, 3).map((brand) => (
               <Card key={brand.name} className="border bg-card/90 backdrop-blur">
                 <CardContent className="flex gap-4 p-6">
                   <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-full border">
-                    <img src={brand.logo} alt={brand.name} className="h-full w-full object-cover" />
+                    <img src={brand.logoUrl || brand.logo} alt={brand.name} className="h-full w-full object-cover" />
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">Signature brand</p>
@@ -302,45 +414,49 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Seller testimonials */}
         <section className="rounded-3xl border bg-card/80 px-8 py-12 shadow-lg backdrop-blur">
           <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">Seller voices</p>
-              <h2 className="text-2xl font-semibold">Why creators choose our marketplace</h2>
+              <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">{cms.testimonials?.heading?.eyebrow || 'Seller voices'}</p>
+              <h2 className="text-2xl font-semibold">{cms.testimonials?.heading?.title || 'Why creators choose our marketplace'}</h2>
             </div>
             <Button asChild variant="outline" className="rounded-full">
               <Link to="/seller/apply">Start your application</Link>
             </Button>
           </div>
           <div className="grid gap-8 lg:grid-cols-2">
-            {MOCK_TESTIMONIALS.map((testimonial) => (
-              <blockquote key={testimonial.name} className="rounded-2xl border bg-background/80 p-6 shadow-sm">
+            {(cmsLoading ? MOCK_TESTIMONIALS : testimonialsSection).slice(0, 2).map((testimonial, index) => (
+              <blockquote key={index} className="rounded-2xl border bg-background/80 p-6 shadow-sm">
                 <p className="text-lg font-medium text-foreground">“{testimonial.quote}”</p>
                 <footer className="mt-4 text-sm text-muted-foreground">
-                  <span className="font-semibold text-foreground">{testimonial.name}</span> · {testimonial.role}
+                  <span className="font-semibold text-foreground">{testimonial.name}</span>
+                  {testimonial.role ? ` · ${testimonial.role}` : ''}
                 </footer>
               </blockquote>
             ))}
           </div>
         </section>
 
-        {/* Seller CTA */}
         <section className="overflow-hidden rounded-3xl border bg-gradient-to-br from-secondary/10 via-background to-background p-10 shadow-xl">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-3">
               <p className="text-sm uppercase tracking-[0.3em] text-muted-foreground">For visionary sellers</p>
-              <h2 className="text-3xl font-semibold">Launch your flagship inside a multi-brand icon</h2>
+              <h2 className="text-3xl font-semibold">{cms.sellerCta?.heading || 'Launch your flagship inside a multi-brand icon'}</h2>
               <p className="max-w-2xl text-sm text-muted-foreground">
-                We champion boutique labels with premium storytelling, unified logistics, and concierge support. Apply today and join a collective of design-first brands with a global audience.
+                {cms.sellerCta?.body ||
+                  'We champion boutique labels with premium storytelling, unified logistics, and concierge support. Apply today and join a collective of design-first brands with a global audience.'}
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg">
-                <Link to="/seller/apply">Submit seller application</Link>
+                <Link to={cms.sellerCta?.primaryCta?.href || '/seller/apply'}>
+                  {cms.sellerCta?.primaryCta?.label || 'Submit seller application'}
+                </Link>
               </Button>
               <Button asChild size="lg" variant="outline">
-                <Link to="/seller/dashboard">Seller dashboard</Link>
+                <Link to={cms.sellerCta?.secondaryCta?.href || '/seller/dashboard'}>
+                  {cms.sellerCta?.secondaryCta?.label || 'Seller dashboard'}
+                </Link>
               </Button>
             </div>
           </div>
