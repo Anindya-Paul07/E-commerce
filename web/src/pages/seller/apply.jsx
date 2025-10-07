@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAppSelector } from '@/store/hooks'
 import { api } from '@/lib/api'
 import { notify } from '@/lib/notify'
@@ -94,34 +95,52 @@ export default function SellerApplicationPage() {
 
   if (!isLoggedIn) {
     return (
-      <div className="container py-10">
-        <Card className="mx-auto max-w-2xl">
-          <CardHeader>
-            <CardTitle>Become a Seller</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              You need an account to submit a seller application. Please sign in or register first.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="relative overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.12),_transparent_55%)]" aria-hidden="true" />
+        <div className="container relative py-12">
+          <Card className="mx-auto max-w-2xl border border-primary/30 bg-card/95 shadow-xl backdrop-blur">
+            <CardHeader className="space-y-3">
+              <CardTitle className="text-3xl font-semibold">Become a marketplace seller</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Sign in to access the application portal, share your brand story, and unlock premium merchandising across our multivendor flagship.
+              </p>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-3">
+              <Button asChild size="lg">
+                <Link to="/login">Sign in to continue</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <Link to="/register">Create a new account</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="container py-10">
-      <Card className="mx-auto max-w-3xl">
-        <CardHeader>
-          <CardTitle>Seller Application</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={handleSubmit}
-            className="grid gap-4"
-            encType="multipart/form-data"
-            noValidate
-          >
+    <div className="relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom,_rgba(56,189,248,0.12),_transparent_55%)]" aria-hidden="true" />
+      <div className="container relative space-y-10 py-12">
+        <div className="mx-auto max-w-3xl space-y-4 text-center">
+          <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Seller application</p>
+          <h1 className="text-3xl font-semibold text-foreground sm:text-4xl">Share your brand, join the flagship collective</h1>
+          <p className="text-sm text-muted-foreground">
+            Tell us about your label, merchandising vision, and fulfilment readiness. Our merchant team reviews every submission with a meticulous eye for detail.
+          </p>
+        </div>
+        <Card className="mx-auto max-w-3xl border border-primary/10 bg-card/95 shadow-2xl backdrop-blur">
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold">Seller application</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form
+              onSubmit={handleSubmit}
+              className="grid gap-5"
+              encType="multipart/form-data"
+              noValidate
+            >
             {success && (
               <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
                 Thanks! Your application was submitted. We will review it shortly.
@@ -257,6 +276,7 @@ export default function SellerApplicationPage() {
           </form>
         </CardContent>
       </Card>
+      </div>
     </div>
   )
 }

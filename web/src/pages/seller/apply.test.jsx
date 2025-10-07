@@ -89,7 +89,8 @@ describe('SellerApplicationPage', () => {
   it('prompts unauthenticated visitors to sign in', () => {
     renderPage({ user: null })
 
-    expect(screen.getByText(/you need an account/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /become a marketplace seller/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /sign in to continue/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /submit application/i })).not.toBeInTheDocument()
   })
 })

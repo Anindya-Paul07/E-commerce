@@ -25,6 +25,12 @@ import subscriptionPlanRoutes from './router/subscription-plan.route.js';
 import adminSubscriptionRoutes from './router/admin-subscription.route.js';
 import adminFulfillmentRoutes from './router/admin-fulfillment.route.js';
 import catalogProductRoutes from './router/catalog-product.route.js';
+import homepageRoutes from './router/homepage.route.js';
+import adminHomepageRoutes from './router/admin-homepage.route.js';
+import sellerPageRoutes from './router/sellerpage.route.js';
+import adminSellerPageRoutes from './router/admin-sellerpage.route.js';
+import themeRoutes from './router/theme.route.js';
+import adminThemeRoutes from './router/admin-theme.route.js';
 
 const app = express();
 
@@ -58,6 +64,12 @@ app.use('/api/catalog-products', catalogProductRoutes);
 app.use('/api/subscription-plans', subscriptionPlanRoutes);
 app.use('/api/admin/subscriptions', adminSubscriptionRoutes);
 app.use('/api/admin/fulfillment-tasks', adminFulfillmentRoutes);
+app.use('/api/homepage', homepageRoutes);
+app.use('/api/admin/homepage', adminHomepageRoutes);
+app.use('/api/seller-page', sellerPageRoutes);
+app.use('/api/admin/seller-page', adminSellerPageRoutes);
+app.use('/api/themes', themeRoutes);
+app.use('/api/admin/themes', adminThemeRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

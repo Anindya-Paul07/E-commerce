@@ -1,0 +1,893 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
+import { api } from '@/lib/api'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { notify } from '@/lib/notify'
+
+const DEFAULT_CONTENT = {
+  hero: {
+    title: 'A flagship experience for modern multi-brand commerce',
+    subtitle: 'Discover limited-run capsules, design-led essentials, and visionary labels powered by our curated seller collective.',
+    eyebrow: 'Marketplace reimagined',
+    ctaLabel: 'Browse featured drops',
+    ctaHref: '/collections/featured',
+    backgroundImage: '',
+    enabled: true,
+  },
+  carousel: [],
+  notification: {
+    message: '',
+    type: 'info',
+    ctaLabel: '',
+    ctaHref: '',
+    enabled: false,
+  },
+  couponBlocks: [],
+  categoryCapsules: {
+    heading: {
+      eyebrow: 'Curated universes',
+      title: 'Shop by editorial universe',
+      subtitle: '',
+    },
+    cta: { label: 'Explore all categories', href: '/categories' },
+    items: [],
+  },
+  brandHighlights: {
+    heading: {
+      eyebrow: 'Partner studios',
+      title: 'Brands shaping the platform',
+      subtitle: '',
+    },
+    items: [],
+  },
+  testimonials: {
+    heading: {
+      eyebrow: 'Seller voices',
+      title: 'Why creators choose our marketplace',
+      subtitle: '',
+    },
+    items: [],
+  },
+  sellerCta: {
+    heading: 'Launch your flagship inside a multi-brand icon',
+    body: 'We champion boutique labels with premium storytelling, unified logistics, and concierge support.',
+    primaryCta: { label: 'Submit seller application', href: '/seller/apply' },
+    secondaryCta: { label: 'Seller dashboard', href: '/seller/dashboard' },
+  },
+  theme: {
+    activePreset: 'daylight',
+    availablePresets: [],
+    overrides: {},
+  },
+}
+
+const CAROUSEL_TEMPLATE = { title: '', caption: '', imageUrl: '', href: '' }
+const COUPON_TEMPLATE = { title: '', description: '', code: '', finePrint: '', imageUrl: '', href: '', expiresAt: '', enabled: true }
+const CATEGORY_TEMPLATE = { name: '', description: '', href: '', badge: '', mediaUrl: '' }
+const BRAND_TEMPLATE = { name: '', description: '', logoUrl: '', href: '' }
+const TESTIMONIAL_TEMPLATE = { quote: '', name: '', role: '', avatarUrl: '' }
+
+function hydrateHomepage(raw = {}) {
+  return {
+    ...DEFAULT_CONTENT,
+    ...raw,
+    hero: { ...DEFAULT_CONTENT.hero, ...(raw.hero || {}) },
+    notification: { ...DEFAULT_CONTENT.notification, ...(raw.notification || {}) },
+    categoryCapsules: {
+      heading: { ...DEFAULT_CONTENT.categoryCapsules.heading, ...(raw.categoryCapsules?.heading || {}) },
+      cta: { ...DEFAULT_CONTENT.categoryCapsules.cta, ...(raw.categoryCapsules?.cta || {}) },
+      items: Array.isArray(raw.categoryCapsules?.items) ? raw.categoryCapsules.items : [],
+    },
+    brandHighlights: {
+      heading: { ...DEFAULT_CONTENT.brandHighlights.heading, ...(raw.brandHighlights?.heading || {}) },
+      items: Array.isArray(raw.brandHighlights?.items) ? raw.brandHighlights.items : [],
+    },
+    testimonials: {
+      heading: { ...DEFAULT_CONTENT.testimonials.heading, ...(raw.testimonials?.heading || {}) },
+      items: Array.isArray(raw.testimonials?.items) ? raw.testimonials.items : [],
+    },
+    sellerCta: { ...DEFAULT_CONTENT.sellerCta, ...(raw.sellerCta || {}) },
+    carousel: Array.isArray(raw.carousel) ? raw.carousel : [],
+    couponBlocks: Array.isArray(raw.couponBlocks) ? raw.couponBlocks : [],
+    theme: { ...DEFAULT_CONTENT.theme, ...(raw.theme || {}) },
+  }
+}
+
+export default function AdminStorefrontCMS() {
+  const [content, setContent] = useState(DEFAULT_CONTENT)
+  const [themes, setThemes] = useState([])
+  const [activeTheme, setActiveTheme] = useState('daylight')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      try {
+        setLoading(true)
+        const [{ content: homepage }, themePayload] = await Promise.all([
+          api.get('/admin/homepage'),
+          api.get('/admin/themes'),
+        ])
+        if (!active) return
+        setContent(hydrateHomepage(homepage))
+        setThemes(themePayload.presets || [])
+        setActiveTheme(themePayload.activePreset || homepage?.theme?.activePreset || 'daylight')
+      } catch (err) {
+        if (!active) return
+        setError(err.message || 'Failed to load storefront CMS data')
+      } finally {
+        if (active) setLoading(false)
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const heroPreviewStyle = useMemo(() => ({
+    background: content.theme?.overrides?.['--hero-background'] || content.theme?.availablePresets?.find((preset) => preset.key === activeTheme)?.gradient || 'linear-gradient(135deg, rgba(99,102,241,0.18), rgba(14,165,233,0.18))',
+  }), [content.theme, activeTheme])
+
+  function updateHero(field, value) {
+    setContent((prev) => ({
+      ...prev,
+      hero: { ...prev.hero, [field]: value },
+    }))
+  }
+
+  function updateNotification(field, value) {
+    setContent((prev) => ({
+      ...prev,
+      notification: { ...prev.notification, [field]: value },
+    }))
+  }
+
+  function toggleNotificationEnabled(value) {
+    setContent((prev) => ({
+      ...prev,
+      notification: { ...prev.notification, enabled: value },
+    }))
+  }
+
+  function updateSellerCta(field, value) {
+    setContent((prev) => ({
+      ...prev,
+      sellerCta: { ...prev.sellerCta, [field]: value },
+    }))
+  }
+
+  function updateSellerCtaLink(link, field, value) {
+    setContent((prev) => ({
+      ...prev,
+      sellerCta: {
+        ...prev.sellerCta,
+        [link]: { ...(prev.sellerCta?.[link] || {}), [field]: value },
+      },
+    }))
+  }
+
+  function updateHeading(section, field, value) {
+    setContent((prev) => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        heading: { ...(prev[section]?.heading || {}), [field]: value },
+      },
+    }))
+  }
+
+  function updateSectionCta(section, field, value) {
+    setContent((prev) => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        cta: { ...(prev[section]?.cta || {}), [field]: value },
+      },
+    }))
+  }
+
+  function addItem(section, template) {
+    setContent((prev) => {
+      const current = Array.isArray(prev[section]) ? prev[section] : prev[section]?.items || []
+      if (Array.isArray(prev[section])) {
+        return { ...prev, [section]: [...current, { ...template }] }
+      }
+      return {
+        ...prev,
+        [section]: {
+          ...prev[section],
+          items: [...current, { ...template }],
+        },
+      }
+    })
+  }
+
+  function updateItem(section, index, field, value, nestedPath = null) {
+    setContent((prev) => {
+      const current = Array.isArray(prev[section]) ? prev[section] : prev[section]?.items
+      if (!current) return prev
+      const next = current.map((item, i) => {
+        if (i !== index) return item
+        if (nestedPath) {
+          const clone = { ...item }
+          let ref = clone
+          for (let j = 0; j < nestedPath.length - 1; j += 1) {
+            const key = nestedPath[j]
+            ref[key] = { ...(ref[key] || {}) }
+            ref = ref[key]
+          }
+          ref[nestedPath[nestedPath.length - 1]] = value
+          return clone
+        }
+        return { ...item, [field]: value }
+      })
+
+      if (Array.isArray(prev[section])) {
+        return { ...prev, [section]: next }
+      }
+      return {
+        ...prev,
+        [section]: {
+          ...prev[section],
+          items: next,
+        },
+      }
+    })
+  }
+
+  function removeItem(section, index) {
+    setContent((prev) => {
+      const current = Array.isArray(prev[section]) ? prev[section] : prev[section]?.items
+      if (!current) return prev
+      const filtered = current.filter((_, i) => i !== index)
+      if (Array.isArray(prev[section])) {
+        return { ...prev, [section]: filtered }
+      }
+      return {
+        ...prev,
+        [section]: {
+          ...prev[section],
+          items: filtered,
+        },
+      }
+    })
+  }
+
+  function moveItem(section, index, direction) {
+    setContent((prev) => {
+      const current = Array.isArray(prev[section]) ? prev[section] : prev[section]?.items
+      if (!current) return prev
+      const target = index + direction
+      if (target < 0 || target >= current.length) return prev
+      const next = [...current]
+      const [removed] = next.splice(index, 1)
+      next.splice(target, 0, removed)
+      if (Array.isArray(prev[section])) {
+        return { ...prev, [section]: next }
+      }
+      return {
+        ...prev,
+        [section]: {
+          ...prev[section],
+          items: next,
+        },
+      }
+    })
+  }
+
+  async function handleThemeChange(key) {
+    try {
+      setActiveTheme(key)
+      setContent((prev) => ({
+        ...prev,
+        theme: { ...prev.theme, activePreset: key },
+      }))
+      await api.patch('/admin/themes/active', { key })
+      notify.success('Active theme updated')
+    } catch (err) {
+      notify.error(err.message || 'Failed to update theme')
+    }
+  }
+
+  async function handleSave() {
+    try {
+      setSaving(true)
+      const { content: payload } = await api.put('/admin/homepage', content)
+      setContent(hydrateHomepage(payload))
+      notify.success('Storefront CMS updated')
+    } catch (err) {
+      notify.error(err.message || 'Failed to save storefront CMS')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader><CardTitle>Storefront CMS</CardTitle></CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Loading storefront content…</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Storefront CMS</h1>
+          <p className="text-sm text-muted-foreground">Curate the public homepage narrative and visual system.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <ThemeSelector themes={themes} active={activeTheme} onChange={handleThemeChange} />
+          <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</Button>
+        </div>
+      </div>
+
+      {error && (
+        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </p>
+      )}
+
+      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Hero</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <input
+                className="h-9 w-full rounded-md border bg-background px-3"
+                value={content.hero.eyebrow || ''}
+                onChange={(e) => updateHero('eyebrow', e.target.value)}
+                placeholder="Eyebrow copy"
+              />
+              <input
+                className="h-10 w-full rounded-md border bg-background px-3 text-lg font-semibold"
+                value={content.hero.title}
+                onChange={(e) => updateHero('title', e.target.value)}
+                placeholder="Headline"
+              />
+              <textarea
+                className="min-h-[80px] w-full rounded-md border bg-background px-3 py-2"
+                value={content.hero.subtitle}
+                onChange={(e) => updateHero('subtitle', e.target.value)}
+                placeholder="Subheading"
+              />
+              <div className="grid gap-2 md:grid-cols-2">
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={content.hero.ctaLabel}
+                  onChange={(e) => updateHero('ctaLabel', e.target.value)}
+                  placeholder="Primary CTA label"
+                />
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={content.hero.ctaHref}
+                  onChange={(e) => updateHero('ctaHref', e.target.value)}
+                  placeholder="Primary CTA href"
+                />
+              </div>
+              <input
+                className="h-9 w-full rounded-md border bg-background px-3"
+                value={content.hero.backgroundImage || ''}
+                onChange={(e) => updateHero('backgroundImage', e.target.value)}
+                placeholder="Background image URL"
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Announcement bar</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-medium">Enable</label>
+                <Button type="button" variant={content.notification.enabled ? 'default' : 'outline'} size="sm" onClick={() => toggleNotificationEnabled(!content.notification.enabled)}>
+                  {content.notification.enabled ? 'Enabled' : 'Disabled'}
+                </Button>
+              </div>
+              <input
+                className="h-9 w-full rounded-md border bg-background px-3"
+                value={content.notification.message}
+                onChange={(e) => updateNotification('message', e.target.value)}
+                placeholder="Message"
+              />
+              <div className="grid gap-2 md:grid-cols-2">
+                <select
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={content.notification.type}
+                  onChange={(e) => updateNotification('type', e.target.value)}
+                >
+                  <option value="info">Info</option>
+                  <option value="success">Success</option>
+                  <option value="warning">Warning</option>
+                  <option value="danger">Danger</option>
+                </select>
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={content.notification.ctaLabel}
+                  onChange={(e) => updateNotification('ctaLabel', e.target.value)}
+                  placeholder="CTA label"
+                />
+              </div>
+              <input
+                className="h-9 w-full rounded-md border bg-background px-3"
+                value={content.notification.ctaHref}
+                onChange={(e) => updateNotification('ctaHref', e.target.value)}
+                placeholder="CTA href"
+              />
+            </CardContent>
+          </Card>
+
+          <EditableCollection
+            title="Hero carousel"
+            description="Surface current campaigns with rich imagery."
+            items={content.carousel}
+            onAdd={() => addItem('carousel', { ...CAROUSEL_TEMPLATE })}
+            renderItem={(item, index) => (
+              <div className="space-y-3" key={index}>
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={item.title}
+                  onChange={(e) => updateItem('carousel', index, 'title', e.target.value)}
+                  placeholder="Slide title"
+                />
+                <textarea
+                  className="min-h-[60px] w-full rounded-md border bg-background px-3 py-2"
+                  value={item.caption}
+                  onChange={(e) => updateItem('carousel', index, 'caption', e.target.value)}
+                  placeholder="Caption"
+                />
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={item.imageUrl}
+                  onChange={(e) => updateItem('carousel', index, 'imageUrl', e.target.value)}
+                  placeholder="Image URL"
+                />
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={item.href}
+                  onChange={(e) => updateItem('carousel', index, 'href', e.target.value)}
+                  placeholder="Link"
+                />
+              </div>
+            )}
+            onRemove={(index) => removeItem('carousel', index)}
+            onMove={(index, direction) => moveItem('carousel', index, direction)}
+          />
+
+          <EditableCollection
+            title="Spotlight coupons"
+            description="Offer incentives or one-time drops with expiry dates."
+            items={content.couponBlocks}
+            onAdd={() => addItem('couponBlocks', { ...COUPON_TEMPLATE })}
+            renderItem={(block, index) => (
+              <div className="space-y-3" key={index}>
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={block.title}
+                  onChange={(e) => updateItem('couponBlocks', index, 'title', e.target.value)}
+                  placeholder="Title"
+                />
+                <textarea
+                  className="min-h-[60px] w-full rounded-md border bg-background px-3 py-2"
+                  value={block.description}
+                  onChange={(e) => updateItem('couponBlocks', index, 'description', e.target.value)}
+                  placeholder="Description"
+                />
+                <div className="grid gap-2 md:grid-cols-2">
+                  <input
+                    className="h-9 w-full rounded-md border bg-background px-3"
+                    value={block.code}
+                    onChange={(e) => updateItem('couponBlocks', index, 'code', e.target.value)}
+                    placeholder="Code"
+                  />
+                  <input
+                    className="h-9 w-full rounded-md border bg-background px-3"
+                    value={block.expiresAt || ''}
+                    onChange={(e) => updateItem('couponBlocks', index, 'expiresAt', e.target.value)}
+                    placeholder="Expires at"
+                  />
+                </div>
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={block.imageUrl}
+                  onChange={(e) => updateItem('couponBlocks', index, 'imageUrl', e.target.value)}
+                  placeholder="Image URL"
+                />
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={block.href}
+                  onChange={(e) => updateItem('couponBlocks', index, 'href', e.target.value)}
+                  placeholder="Link"
+                />
+              </div>
+            )}
+            onRemove={(index) => removeItem('couponBlocks', index)}
+            onMove={(index, direction) => moveItem('couponBlocks', index, direction)}
+          />
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Category capsules</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={content.categoryCapsules.heading.eyebrow}
+                  onChange={(e) => updateHeading('categoryCapsules', 'eyebrow', e.target.value)}
+                  placeholder="Eyebrow"
+                />
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={content.categoryCapsules.heading.title}
+                  onChange={(e) => updateHeading('categoryCapsules', 'title', e.target.value)}
+                  placeholder="Title"
+                />
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={content.categoryCapsules.heading.subtitle}
+                  onChange={(e) => updateHeading('categoryCapsules', 'subtitle', e.target.value)}
+                  placeholder="Subtitle"
+                />
+                <div className="grid gap-2 md:grid-cols-2">
+                  <input
+                    className="h-9 w-full rounded-md border bg-background px-3"
+                    value={content.categoryCapsules.cta?.label || ''}
+                    onChange={(e) => updateSectionCta('categoryCapsules', 'label', e.target.value)}
+                    placeholder="CTA label"
+                  />
+                  <input
+                    className="h-9 w-full rounded-md border bg-background px-3"
+                    value={content.categoryCapsules.cta?.href || ''}
+                    onChange={(e) => updateSectionCta('categoryCapsules', 'href', e.target.value)}
+                    placeholder="CTA href"
+                  />
+                </div>
+              </div>
+
+              <EditableCollection
+                title="Category tiles"
+                description="Curated narratives or collections."
+                items={content.categoryCapsules.items}
+                onAdd={() => addItem('categoryCapsules', { ...CATEGORY_TEMPLATE })}
+                renderItem={(item, index) => (
+                  <div className="space-y-3" key={index}>
+                    <input
+                      className="h-9 w-full rounded-md border bg-background px-3"
+                      value={item.name}
+                      onChange={(e) => updateItem('categoryCapsules', index, 'name', e.target.value)}
+                      placeholder="Name"
+                    />
+                    <textarea
+                      className="min-h-[60px] w-full rounded-md border bg-background px-3 py-2"
+                      value={item.description}
+                      onChange={(e) => updateItem('categoryCapsules', index, 'description', e.target.value)}
+                      placeholder="Description"
+                    />
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <input
+                        className="h-9 w-full rounded-md border bg-background px-3"
+                        value={item.badge}
+                        onChange={(e) => updateItem('categoryCapsules', index, 'badge', e.target.value)}
+                        placeholder="Badge"
+                      />
+                      <input
+                        className="h-9 w-full rounded-md border bg-background px-3"
+                        value={item.href}
+                        onChange={(e) => updateItem('categoryCapsules', index, 'href', e.target.value)}
+                        placeholder="Link"
+                      />
+                    </div>
+                    <input
+                      className="h-9 w-full rounded-md border bg-background px-3"
+                      value={item.mediaUrl}
+                      onChange={(e) => updateItem('categoryCapsules', index, 'mediaUrl', e.target.value)}
+                      placeholder="Media URL"
+                    />
+                  </div>
+                )}
+                onRemove={(index) => removeItem('categoryCapsules', index)}
+                onMove={(index, direction) => moveItem('categoryCapsules', index, direction)}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Partnered brands</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={content.brandHighlights.heading.eyebrow}
+                  onChange={(e) => updateHeading('brandHighlights', 'eyebrow', e.target.value)}
+                  placeholder="Eyebrow"
+                />
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={content.brandHighlights.heading.title}
+                  onChange={(e) => updateHeading('brandHighlights', 'title', e.target.value)}
+                  placeholder="Title"
+                />
+              </div>
+              <EditableCollection
+                title="Brand highlights"
+                description="Spotlight featured partners."
+                items={content.brandHighlights.items}
+                onAdd={() => addItem('brandHighlights', { ...BRAND_TEMPLATE })}
+                renderItem={(brand, index) => (
+                  <div className="space-y-3" key={index}>
+                    <input
+                      className="h-9 w-full rounded-md border bg-background px-3"
+                      value={brand.name}
+                      onChange={(e) => updateItem('brandHighlights', index, 'name', e.target.value)}
+                      placeholder="Brand name"
+                    />
+                    <textarea
+                      className="min-h-[60px] w-full rounded-md border bg-background px-3 py-2"
+                      value={brand.description}
+                      onChange={(e) => updateItem('brandHighlights', index, 'description', e.target.value)}
+                      placeholder="Description"
+                    />
+                    <input
+                      className="h-9 w-full rounded-md border bg-background px-3"
+                      value={brand.logoUrl}
+                      onChange={(e) => updateItem('brandHighlights', index, 'logoUrl', e.target.value)}
+                      placeholder="Logo URL"
+                    />
+                    <input
+                      className="h-9 w-full rounded-md border bg-background px-3"
+                      value={brand.href}
+                      onChange={(e) => updateItem('brandHighlights', index, 'href', e.target.value)}
+                      placeholder="Link"
+                    />
+                  </div>
+                )}
+                onRemove={(index) => removeItem('brandHighlights', index)}
+                onMove={(index, direction) => moveItem('brandHighlights', index, direction)}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Testimonials</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={content.testimonials.heading.eyebrow}
+                  onChange={(e) => updateHeading('testimonials', 'eyebrow', e.target.value)}
+                  placeholder="Eyebrow"
+                />
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={content.testimonials.heading.title}
+                  onChange={(e) => updateHeading('testimonials', 'title', e.target.value)}
+                  placeholder="Title"
+                />
+              </div>
+              <EditableCollection
+                title="Quotes"
+                description="Give voice to existing sellers."
+                items={content.testimonials.items}
+                onAdd={() => addItem('testimonials', { ...TESTIMONIAL_TEMPLATE })}
+                renderItem={(item, index) => (
+                  <div className="space-y-3" key={index}>
+                    <textarea
+                      className="min-h-[60px] w-full rounded-md border bg-background px-3 py-2"
+                      value={item.quote}
+                      onChange={(e) => updateItem('testimonials', index, 'quote', e.target.value)}
+                      placeholder="Quote"
+                    />
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <input
+                        className="h-9 w-full rounded-md border bg-background px-3"
+                        value={item.name}
+                        onChange={(e) => updateItem('testimonials', index, 'name', e.target.value)}
+                        placeholder="Name"
+                      />
+                      <input
+                        className="h-9 w-full rounded-md border bg-background px-3"
+                        value={item.role}
+                        onChange={(e) => updateItem('testimonials', index, 'role', e.target.value)}
+                        placeholder="Role"
+                      />
+                    </div>
+                    <input
+                      className="h-9 w-full rounded-md border bg-background px-3"
+                      value={item.avatarUrl}
+                      onChange={(e) => updateItem('testimonials', index, 'avatarUrl', e.target.value)}
+                      placeholder="Avatar URL"
+                    />
+                  </div>
+                )}
+                onRemove={(index) => removeItem('testimonials', index)}
+                onMove={(index, direction) => moveItem('testimonials', index, direction)}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Seller CTA</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <input
+                className="h-9 w-full rounded-md border bg-background px-3"
+                value={content.sellerCta.heading}
+                onChange={(e) => updateSellerCta('heading', e.target.value)}
+                placeholder="Heading"
+              />
+              <textarea
+                className="min-h-[80px] w-full rounded-md border bg-background px-3 py-2"
+                value={content.sellerCta.body}
+                onChange={(e) => updateSellerCta('body', e.target.value)}
+                placeholder="Body copy"
+              />
+              <div className="grid gap-2 md:grid-cols-2">
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={content.sellerCta.primaryCta?.label || ''}
+                  onChange={(e) => updateSellerCtaLink('primaryCta', 'label', e.target.value)}
+                  placeholder="Primary CTA"
+                />
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={content.sellerCta.primaryCta?.href || ''}
+                  onChange={(e) => updateSellerCtaLink('primaryCta', 'href', e.target.value)}
+                  placeholder="Primary href"
+                />
+              </div>
+              <div className="grid gap-2 md:grid-cols-2">
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={content.sellerCta.secondaryCta?.label || ''}
+                  onChange={(e) => updateSellerCtaLink('secondaryCta', 'label', e.target.value)}
+                  placeholder="Secondary CTA"
+                />
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={content.sellerCta.secondaryCta?.href || ''}
+                  onChange={(e) => updateSellerCtaLink('secondaryCta', 'href', e.target.value)}
+                  placeholder="Secondary href"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <aside className="space-y-6">
+          <StorefrontPreview hero={content.hero} carousel={content.carousel} categories={content.categoryCapsules.items} brandHighlights={content.brandHighlights.items} sellerCta={content.sellerCta} heroStyle={heroPreviewStyle} />
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+function ThemeSelector({ themes, active, onChange }) {
+  return (
+    <div className="flex items-center gap-2">
+      <label className="text-sm text-muted-foreground">Theme</label>
+      <select
+        className="h-9 rounded-md border bg-background px-3"
+        value={active}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {themes.length > 0 ? (
+          themes.map((preset) => (
+            <option key={preset.key} value={preset.key}>
+              {preset.label} · {preset.palette.mode === 'day' ? 'Day' : 'Night'}
+            </option>
+          ))
+        ) : (
+          <option value={active}>{active}</option>
+        )}
+      </select>
+    </div>
+  )
+}
+
+function EditableCollection({ title, description, items, onAdd, renderItem, onRemove, onMove }) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <CardTitle>{title}</CardTitle>
+          <p className="text-xs text-muted-foreground">{description}</p>
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={onAdd} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Add
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {items.length === 0 && <p className="text-sm text-muted-foreground">No entries yet.</p>}
+        {items.map((item, index) => (
+          <div key={index} className="rounded-lg border p-4">
+            <div className="flex items-center justify-end gap-2 pb-3">
+              <Button type="button" variant="ghost" size="icon" onClick={() => onMove(index, -1)} disabled={index === 0}>
+                <ArrowUp className="h-4 w-4" />
+              </Button>
+              <Button type="button" variant="ghost" size="icon" onClick={() => onMove(index, 1)} disabled={index === items.length - 1}>
+                <ArrowDown className="h-4 w-4" />
+              </Button>
+              <Button type="button" variant="ghost" size="icon" onClick={() => onRemove(index)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+            {renderItem(item, index)}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
+function StorefrontPreview({ hero, carousel, categories, brandHighlights, sellerCta, heroStyle }) {
+  return (
+    <Card className="border-primary/20 bg-card/95 shadow-lg">
+      <CardHeader>
+        <CardTitle>Homepage preview</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6 text-sm">
+        <div className="space-y-2 rounded-2xl p-5 text-card-foreground" style={heroStyle}>
+          <p className="text-[11px] uppercase tracking-[0.3em] text-card-foreground/80">{hero.eyebrow}</p>
+          <h3 className="text-lg font-semibold text-card-foreground">{hero.title}</h3>
+          <p className="text-card-foreground/90">{hero.subtitle}</p>
+        </div>
+
+        {carousel.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Carousel</p>
+            <div className="rounded-lg border bg-background/70 px-4 py-3">
+              <p className="text-sm font-semibold">{carousel[0].title || 'Untitled slide'}</p>
+              <p className="text-xs text-muted-foreground">{carousel[0].caption}</p>
+            </div>
+          </div>
+        )}
+
+        {categories.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Categories</p>
+            <div className="grid gap-2">
+              {categories.slice(0, 2).map((item, index) => (
+                <div key={index} className="rounded-lg border bg-background/70 px-3 py-2">
+                  <p className="text-sm font-medium">{item.name || 'Untitled story'}</p>
+                  <p className="text-xs text-muted-foreground">{item.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {brandHighlights.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Partner brands</p>
+            <div className="rounded-lg border bg-background/70 px-3 py-2 text-xs text-muted-foreground">
+              {brandHighlights[0].name || 'Brand name'} — {brandHighlights[0].description}
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2 rounded-lg border bg-background/70 px-4 py-4">
+          <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Seller CTA</p>
+          <h4 className="text-sm font-semibold text-foreground">{sellerCta.heading}</h4>
+          <p className="text-xs text-muted-foreground">{sellerCta.body}</p>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
