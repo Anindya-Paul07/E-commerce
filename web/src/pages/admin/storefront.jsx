@@ -4,6 +4,7 @@ import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { notify } from '@/lib/notify'
+import { useTheme } from '@/context/ThemeContext'
 
 const DEFAULT_CONTENT = {
   hero: {
@@ -101,6 +102,7 @@ export default function AdminStorefrontCMS() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const { setActivePreset: setGlobalTheme } = useTheme()
 
   useEffect(() => {
     let active = true
@@ -113,8 +115,14 @@ export default function AdminStorefrontCMS() {
         ])
         if (!active) return
         setContent(hydrateHomepage(homepage))
-        setThemes(themePayload.presets || [])
-        setActiveTheme(themePayload.activePreset || homepage?.theme?.activePreset || 'daylight')
+        const presetList = Array.isArray(themePayload.presets) ? themePayload.presets : []
+        setThemes(presetList)
+        const nextActiveKey = themePayload.activePreset || homepage?.theme?.activePreset || 'daylight'
+        setActiveTheme(nextActiveKey)
+        setGlobalTheme(nextActiveKey, {
+          presets: presetList,
+          overrides: homepage?.theme?.overrides,
+        })
       } catch (err) {
         if (!active) return
         setError(err.message || 'Failed to load storefront CMS data')
@@ -125,7 +133,7 @@ export default function AdminStorefrontCMS() {
     return () => {
       active = false
     }
-  }, [])
+  }, [setGlobalTheme])
 
   const heroPreviewStyle = useMemo(() => ({
     background: content.theme?.overrides?.['--hero-background'] || content.theme?.availablePresets?.find((preset) => preset.key === activeTheme)?.gradient || 'linear-gradient(135deg, rgba(99,102,241,0.18), rgba(14,165,233,0.18))',
@@ -285,6 +293,7 @@ export default function AdminStorefrontCMS() {
         ...prev,
         theme: { ...prev.theme, activePreset: key },
       }))
+      setGlobalTheme(key, { presets: themes, overrides: content.theme?.overrides })
       await api.patch('/admin/themes/active', { key })
       notify.success('Active theme updated')
     } catch (err) {
@@ -297,6 +306,10 @@ export default function AdminStorefrontCMS() {
       setSaving(true)
       const { content: payload } = await api.put('/admin/homepage', content)
       setContent(hydrateHomepage(payload))
+      setGlobalTheme(payload?.theme?.activePreset || content.theme?.activePreset || activeTheme, {
+        presets: themes,
+        overrides: payload?.theme?.overrides,
+      })
       notify.success('Storefront CMS updated')
     } catch (err) {
       notify.error(err.message || 'Failed to save storefront CMS')

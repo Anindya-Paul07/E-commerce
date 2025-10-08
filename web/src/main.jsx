@@ -8,6 +8,7 @@ import { store } from '@/store'
 import { fetchSession } from '@/store/slices/sessionSlice'
 import { fetchCart } from '@/store/slices/cartSlice'
 import { Toaster } from 'sonner'
+import { ThemeProvider, useTheme } from '@/context/ThemeContext'
 
 store.dispatch(fetchSession())
   .then(() => {
@@ -22,9 +23,16 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <Provider store={store}>
       <ConfirmProvider>
-        <Toaster richColors position="top-right" theme="light" closeButton />
-        <App />
+        <ThemeProvider>
+          <ThemeAwareToaster />
+          <App />
+        </ThemeProvider>
       </ConfirmProvider>
     </Provider>
   </React.StrictMode>
 )
+
+function ThemeAwareToaster() {
+  const { mode } = useTheme()
+  return <Toaster richColors position="top-right" theme={mode === 'night' ? 'dark' : 'light'} closeButton />
+}

@@ -16,7 +16,7 @@ async function main() {
 
   const email = process.env.ADMIN_EMAIL || 'admin@example.com';
   const password = process.env.ADMIN_PASSWORD || 'admin1234';
-  const name = 'Admin';
+  const name = 'admin';
 
   const existing = await User.findOne({ email });
   if (existing) {
@@ -31,7 +31,7 @@ async function main() {
       name,
       email: email.toLowerCase(),
       passwordHash,
-      roles: ['admin'],
+      roles: ['admin', 'superadmin'],
     });
     console.log('✅ Admin created:', email, 'password:', password);
   }

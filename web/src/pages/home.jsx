@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,6 +7,7 @@ import Badge from '@/components/ui/badge'
 import { notify } from '@/lib/notify'
 import { useAppDispatch } from '@/store/hooks'
 import { addToCart as addToCartThunk } from '@/store/slices/cartSlice'
+import { useTheme } from '@/context/ThemeContext'
 import {
   MOCK_BRANDS,
   MOCK_CATEGORIES,
@@ -42,6 +43,14 @@ function hydrateCms(raw = {}) {
   }
 }
 
+function normalizeOverrides(overrides) {
+  if (!overrides || typeof overrides !== 'object') return undefined
+  if (overrides instanceof Map) {
+    return Object.fromEntries(Array.from(overrides.entries()).filter(([key]) => typeof key === 'string'))
+  }
+  return Object.fromEntries(Object.entries(overrides))
+}
+
 export default function Home() {
   const [items, setItems] = useState(MOCK_PRODUCTS)
   const [loading, setLoading] = useState(true)
@@ -53,8 +62,8 @@ export default function Home() {
 
   const [cms, setCms] = useState(MOCK_HOMEPAGE_CONTENT)
   const [cmsLoading, setCmsLoading] = useState(true)
-  const [themePresets, setThemePresets] = useState([])
-  const [activeTheme, setActiveTheme] = useState('daylight')
+  const { presets: themePresets, activePreset: globalTheme, setActivePreset: applyThemePreset } = useTheme()
+  const appliedThemeRef = useRef({ key: null, overridesSig: null, presetSig: null })
 
   const dispatch = useAppDispatch()
 
@@ -99,30 +108,14 @@ export default function Home() {
     ;(async () => {
       try {
         setCmsLoading(true)
-        const [{ content }, themes] = await Promise.all([
-          api.get('/homepage'),
-          api.get('/themes').catch(() => ({ presets: [], activePreset: 'daylight' })),
-        ])
+        const { content } = await api.get('/homepage')
         if (!active) return
         const hasPublishedContent = Boolean(content) && content.published !== false
         const nextCms = hasPublishedContent ? hydrateCms(content) : MOCK_HOMEPAGE_CONTENT
         setCms(nextCms)
-
-        const fallbackTheme = MOCK_HOMEPAGE_CONTENT.theme?.activePreset || 'daylight'
-        let nextActiveTheme = fallbackTheme
-        if (hasPublishedContent && content?.theme?.activePreset) {
-          nextActiveTheme = content.theme.activePreset
-        }
-        if (themes?.activePreset) {
-          nextActiveTheme = themes.activePreset
-        }
-        setActiveTheme(nextActiveTheme)
-        setThemePresets(Array.isArray(themes?.presets) ? themes.presets : [])
       } catch {
         if (!active) return
         setCms(MOCK_HOMEPAGE_CONTENT)
-        setActiveTheme(MOCK_HOMEPAGE_CONTENT.theme?.activePreset || 'daylight')
-        setThemePresets([])
       } finally {
         if (active) setCmsLoading(false)
       }
@@ -131,6 +124,28 @@ export default function Home() {
       active = false
     }
   }, [])
+
+  const cmsThemeKey = cms.theme?.activePreset
+  const cmsOverrides = normalizeOverrides(cms.theme?.overrides)
+
+  useEffect(() => {
+    if (!themePresets || themePresets.length === 0) return
+    const hasMatchingPreset = cmsThemeKey && themePresets.some((preset) => preset.key === cmsThemeKey)
+    const nextKey = hasMatchingPreset ? cmsThemeKey : globalTheme
+    const activePreset = themePresets.find((preset) => preset.key === nextKey)
+    const overridesSig = JSON.stringify(cmsOverrides || {})
+    const presetSig = JSON.stringify({
+      palette: activePreset?.palette || null,
+      typography: activePreset?.typography || null,
+    })
+    const alreadyApplied =
+      appliedThemeRef.current.key === nextKey &&
+      appliedThemeRef.current.overridesSig === overridesSig &&
+      appliedThemeRef.current.presetSig === presetSig
+    if (alreadyApplied) return
+    applyThemePreset(nextKey, { presets: themePresets, overrides: cmsOverrides })
+    appliedThemeRef.current = { key: nextKey, overridesSig, presetSig }
+  }, [applyThemePreset, cmsOverrides, cmsThemeKey, globalTheme, themePresets])
 
   useEffect(() => {
     function onDocClick(e) {
@@ -158,13 +173,6 @@ export default function Home() {
     ? cms.testimonials.items
     : MOCK_HOMEPAGE_CONTENT.testimonials.items
 
-  const heroTheme = useMemo(() => {
-    const preset = themePresets.find((p) => p.key === activeTheme)
-    const gradient = cms.theme?.overrides?.['--hero-background'] || preset?.palette?.gradient
-    const accent = preset?.palette?.accent || '#6366f1'
-    return { gradient, accent }
-  }, [cms.theme, themePresets, activeTheme])
-
   function scrollToProducts() {
     productsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
@@ -184,7 +192,7 @@ export default function Home() {
       <div className="container relative space-y-16 py-14">
         <section
           className="relative overflow-hidden rounded-3xl border px-8 py-14 shadow-xl sm:px-12 lg:flex lg:items-center lg:gap-12"
-          style={{ background: heroTheme.gradient || 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(14,165,233,0.1))' }}
+          style={{ background: cmsOverrides?.['--hero-background'] || 'var(--hero-background)' }}
         >
           <div className="absolute -right-20 top-1/2 hidden h-[32rem] w-[32rem] -translate-y-1/2 rounded-full bg-primary/20 blur-3xl lg:block" aria-hidden="true" />
           <div className="relative z-10 space-y-6 lg:max-w-2xl">
