@@ -95,4 +95,13 @@ describe('SellerApplicationPage', () => {
     expect(await screen.findByRole('link', { name: /start application/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /submit application/i })).not.toBeInTheDocument()
   })
+
+  it('ignores unpublished CMS payloads', async () => {
+    api.get.mockResolvedValueOnce({ content: { published: false, hero: { title: 'Hidden hero' } } })
+
+    renderPage({ user: null })
+
+    expect(await screen.findByRole('heading', { name: /launch your flagship inside a multi-brand icon/i })).toBeInTheDocument()
+    expect(screen.queryByText('Hidden hero')).not.toBeInTheDocument()
+  })
 })

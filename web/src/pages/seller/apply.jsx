@@ -61,21 +61,18 @@ export default function SellerApplicationPage() {
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [cms, setCms] = useState(MOCK_SELLER_PAGE_CONTENT)
-  const [cmsLoading, setCmsLoading] = useState(true)
 
   useEffect(() => {
     let active = true
     ;(async () => {
       try {
-        setCmsLoading(true)
         const { content } = await api.get('/seller-page')
         if (!active) return
-        if (content) setCms(hydrateSellerCms(content))
-      } catch (error) {
+        const hasPublishedContent = Boolean(content) && content.published !== false
+        setCms(hasPublishedContent ? hydrateSellerCms(content) : MOCK_SELLER_PAGE_CONTENT)
+      } catch {
         if (!active) return
         setCms(MOCK_SELLER_PAGE_CONTENT)
-      } finally {
-        if (active) setCmsLoading(false)
       }
     })()
     return () => {

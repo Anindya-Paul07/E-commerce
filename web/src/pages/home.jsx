@@ -104,17 +104,25 @@ export default function Home() {
           api.get('/themes').catch(() => ({ presets: [], activePreset: 'daylight' })),
         ])
         if (!active) return
-        if (content) {
-          setCms(hydrateCms(content))
-          if (content.theme?.activePreset) setActiveTheme(content.theme.activePreset)
-        } else {
-          setCms(MOCK_HOMEPAGE_CONTENT)
+        const hasPublishedContent = Boolean(content) && content.published !== false
+        const nextCms = hasPublishedContent ? hydrateCms(content) : MOCK_HOMEPAGE_CONTENT
+        setCms(nextCms)
+
+        const fallbackTheme = MOCK_HOMEPAGE_CONTENT.theme?.activePreset || 'daylight'
+        let nextActiveTheme = fallbackTheme
+        if (hasPublishedContent && content?.theme?.activePreset) {
+          nextActiveTheme = content.theme.activePreset
         }
-        if (themes?.presets) setThemePresets(themes.presets)
-        if (themes?.activePreset) setActiveTheme(themes.activePreset)
-      } catch (error) {
+        if (themes?.activePreset) {
+          nextActiveTheme = themes.activePreset
+        }
+        setActiveTheme(nextActiveTheme)
+        setThemePresets(Array.isArray(themes?.presets) ? themes.presets : [])
+      } catch {
         if (!active) return
         setCms(MOCK_HOMEPAGE_CONTENT)
+        setActiveTheme(MOCK_HOMEPAGE_CONTENT.theme?.activePreset || 'daylight')
+        setThemePresets([])
       } finally {
         if (active) setCmsLoading(false)
       }
