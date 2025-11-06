@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { notify } from '@/lib/notify'
+import { useConfirm } from '@/context/useConfirm'
+import { buildFormData } from '@/lib/form-data'
 
 const EMPTY = {
   title: '',
@@ -46,6 +49,9 @@ export default function AdminProductsPage() {
   const [err, setErr] = useState('')
   const [form, setForm] = useState(EMPTY)
   const [editingId, setEditingId] = useState(null)
+  const confirm = useConfirm()
+  const [imageFiles, setImageFiles] = useState([])
+  const [imageInputKey, setImageInputKey] = useState(0)
 
   const catMap = useMemo(
     () => new Map(categories.map(c => [String(c._id), c])),
@@ -58,7 +64,7 @@ export default function AdminProductsPage() {
       const { items } = await api.get('/categories?limit=200')
       setCategories(items || [])
     } catch (e) {
-      console.error(e)
+      notify.error(e.message || 'Failed to load categories')
     } finally {
       setCatLoading(false)
     }
@@ -85,6 +91,11 @@ export default function AdminProductsPage() {
   function onChange(e) {
     const { name, value } = e.target
     setForm(prev => ({ ...prev, [name]: value }))
+  }
+
+  function onImageFilesChange(event) {
+    const files = Array.from(event.target.files || [])
+    setImageFiles(files)
   }
 
   function addImageUrl() {
@@ -114,11 +125,22 @@ export default function AdminProductsPage() {
       if (!payload.title || !Number.isFinite(payload.price)) {
         throw new Error('Title and a valid price are required')
       }
-      await api.post('/products', payload)
+      const formData = buildFormData({
+        ...payload,
+        images: JSON.stringify(payload.images || []),
+        tags: JSON.stringify(payload.tags || []),
+        categories: JSON.stringify(payload.categories || []),
+      }, { images: imageFiles })
+      await api.postForm('/products', formData)
       setForm(EMPTY)
+      setImageFiles([])
+      setImageInputKey(k => k + 1)
       await fetchList()
+      notify.success('Product created')
     } catch (e) {
-      setErr(e.message || 'Create failed')
+      const message = e.message || 'Create failed'
+      setErr(message)
+      notify.error(message)
     } finally {
       setSaving(false)
     }
@@ -138,6 +160,8 @@ export default function AdminProductsPage() {
       _imageUrl: '',
       categoryIds: (item.categories || []).map(String), // array of ObjectIds (strings)
     })
+    setImageFiles([])
+    setImageInputKey(k => k + 1)
   }
 
   async function saveEdit(e) {
@@ -149,25 +173,40 @@ export default function AdminProductsPage() {
       if (!payload.title || !Number.isFinite(payload.price)) {
         throw new Error('Title and a valid price are required')
       }
-      await api.patch(`/products/${editingId}`, payload)
+      const formData = buildFormData({
+        ...payload,
+        images: JSON.stringify(payload.images || []),
+        tags: JSON.stringify(payload.tags || []),
+        categories: JSON.stringify(payload.categories || []),
+      }, { images: imageFiles })
+      await api.patchForm(`/products/${editingId}`, formData)
       setEditingId(null)
       setForm(EMPTY)
+      setImageFiles([])
+      setImageInputKey(k => k + 1)
       await fetchList()
+      notify.success('Product updated')
     } catch (e) {
-      setErr(e.message || 'Update failed')
+      const message = e.message || 'Update failed'
+      setErr(message)
+      notify.error(message)
     } finally {
       setSaving(false)
     }
   }
 
   async function del(id) {
-    if (!confirm('Delete this product?')) return
+    const ok = await confirm('Delete this product?', { description: 'This action cannot be undone.' })
+    if (!ok) return
     setErr('')
     try {
       await api.delete(`/products/${id}`)
       await fetchList()
+      notify.success('Product deleted')
     } catch (e) {
-      setErr(e.message || 'Delete failed')
+      const message = e.message || 'Delete failed'
+      setErr(message)
+      notify.error(message)
     }
   }
 
@@ -186,7 +225,11 @@ export default function AdminProductsPage() {
           <CardTitle>{editingId ? 'Edit product' : 'New product'}</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={editingId ? saveEdit : createProduct} className="grid gap-3 sm:grid-cols-2">
+          <form
+            onSubmit={editingId ? saveEdit : createProduct}
+            className="grid gap-3 sm:grid-cols-2"
+            encType="multipart/form-data"
+          >
             <input className="h-10 rounded-md border bg-background px-3" placeholder="Title" name="title" value={form.title} onChange={onChange} required />
             <input className="h-10 rounded-md border bg-background px-3" placeholder="Slug (optional)" name="slug" value={form.slug} onChange={onChange} />
 
@@ -213,6 +256,23 @@ export default function AdminProductsPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="sm:col-span-2 flex flex-col gap-2">
+              <label className="text-sm font-medium">Upload product images</label>
+              <input
+                key={imageInputKey}
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={onImageFilesChange}
+                className="text-xs"
+              />
+              {imageFiles.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Selected files: {imageFiles.map((file) => file.name).join(', ')}
+                </p>
+              )}
             </div>
 
             {/* Categories */}
@@ -248,7 +308,16 @@ export default function AdminProductsPage() {
             <div className="sm:col-span-2 flex gap-2">
               <Button disabled={saving}>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Create product'}</Button>
               {editingId && (
-                <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm(EMPTY) }}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEditingId(null)
+                    setForm(EMPTY)
+                    setImageFiles([])
+                    setImageInputKey(k => k + 1)
+                  }}
+                >
                   Cancel
                 </Button>
               )}

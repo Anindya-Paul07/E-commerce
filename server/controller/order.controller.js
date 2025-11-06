@@ -1,8 +1,8 @@
 import Order from '../model/order.model.js';
 import Cart from '../model/cart.model.js';
-import Coupon from '../model/coupon.model.js';
-import { commitForOrder } from './inventory.controller.js';
-import { validateCouponForUser, couponReasonToMessage } from '../lib/coupon.utils.js';
+import { commitForOrder, releaseForCart } from './inventory.controller.js';
+import { queueFulfillmentForOrder } from '../lib/fulfillment.js';
+import { logger } from '../lib/logger.js';
 
 function pad(n, w=5){ return String(n).padStart(w,'0'); }
 function orderNumber() {
@@ -50,30 +50,93 @@ export async function checkout(req, res, next) {
     const totalBeforeDiscount = subtotal + shipping + tax;
     const total = Math.max(0, totalBeforeDiscount - discount);
 
-    // Create order (pending)
+    const now = new Date();
+    const items = cart.items.map((itemDoc) => {
+      const snapshot = itemDoc.toObject();
+      const commissionRate = typeof snapshot.commissionRate === 'number' ? snapshot.commissionRate : 0;
+      const commissionAmount = Number((commissionRate * snapshot.price * snapshot.qty).toFixed(2));
+      return {
+        ...snapshot,
+        commissionRate,
+        commissionAmount,
+        fulfillmentStatus: 'pending',
+        fulfillmentEvents: [
+          {
+            status: 'pending',
+            at: now,
+            notes: 'Order created',
+          },
+        ],
+      };
+    });
+
+    const commissionTotal = items.reduce((sum, item) => sum + (item.commissionAmount || 0), 0);
+
     const order = await Order.create({
       number: orderNumber(),
       user: req.user._id,
-      items: cart.items.map(i => ({ ...i.toObject() })),
-      subtotal, shipping, tax, discount, total,
-      coupon: couponInfo,
+      items,
+      subtotal, shipping, tax, total,
       currency: cart.currency || 'USD',
       status: 'pending',
       paymentMethod,
       shippingAddress,
-      notes
+      notes,
+      fulfillmentSummary: {
+        status: 'pending',
+        lastUpdatedAt: now,
+      },
+      settlement: {
+        status: 'pending',
+        commissionTotal,
+        netPayoutTotal: total - commissionTotal - shipping - tax,
+      },
     });
 
-    // Commit all reservations
     try {
-      for (const it of cart.items) {
-        await commitForOrder({ orderId: order._id, productId: it.product, qty: it.qty });
+      for (const line of cart.items) {
+        const payload = {
+          orderId: order._id,
+          qty: line.qty,
+        };
+        if (line.listing && line.catalogVariant) {
+          payload.listingId = line.listing;
+          payload.catalogVariantId = line.catalogVariant;
+        } else if (line.product) {
+          payload.productId = line.product;
+        }
+        await commitForOrder(payload);
       }
-    } catch (err) {
-      // If commit fails for any line, abort order (simple strategy)
-      await Order.findByIdAndUpdate(order._id, { status: 'canceled', notes: `Auto-canceled: ${err.message}` });
-      return res.status(409).json({ error: 'Insufficient stock during commit', detail: err.message });
+    } catch (error) {
+      const releases = cart.items.map((line) => {
+        if (line.listing && line.catalogVariant) {
+          return releaseForCart({
+            userId: req.user._id,
+            listingId: line.listing,
+            catalogVariantId: line.catalogVariant,
+            qty: line.qty,
+            cartId: cart._id,
+          });
+        }
+        return releaseForCart({
+          userId: req.user._id,
+          productId: line.product,
+          qty: line.qty,
+          cartId: cart._id,
+        });
+      });
+      await Promise.allSettled(releases);
+      await Order.findByIdAndUpdate(order._id, {
+        status: 'canceled',
+        notes: `Auto-canceled: ${error.message}`,
+      });
+      logger.warn({ orderId: order._id, error: error.message }, 'Order canceled during stock commit');
+      return res.status(409).json({ error: 'Insufficient stock during commit', detail: error.message });
     }
+
+    queueFulfillmentForOrder(order).catch((err) => {
+      logger.error({ err, orderId: order._id }, 'Failed to queue fulfillment tasks');
+    });
 
     // Clear cart
     cart.items = [];

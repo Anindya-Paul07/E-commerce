@@ -1,33 +1,60 @@
-// Support both VITE_API_URL and VITE_API_BASE, else fall back to proxy path
-const BASE = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || '/api')
+const BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || '/api';
 
-let TOKEN = localStorage.getItem('token') || null
-export function setToken(t) {
-  TOKEN = t || null
-  if (t) localStorage.setItem('token', t)
-  else localStorage.removeItem('token')
+let TOKEN = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
+
+export function setToken(token) {
+  TOKEN = token || null;
+  if (typeof localStorage === 'undefined') return;
+  if (token) localStorage.setItem('token', token);
+  else localStorage.removeItem('token');
 }
 
-async function req(path, opts = {}) {
-  const r = await fetch(`${BASE}${path}`, {
-    method: opts.method || 'GET',
+async function request(method, path, data, config = {}) {
+  const { headers = {}, isForm = false, ...rest } = config;
+
+  const fetchOptions = {
+    method: method.toUpperCase(),
+    credentials: 'include',
+    ...rest,
     headers: {
-      'Content-Type': 'application/json',
-      ...(opts.headers || {}),
-      ...(TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {}),   
+      ...(isForm ? {} : { 'Content-Type': 'application/json' }),
+      ...headers,
+      ...(TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {}),
     },
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-    credentials: 'include', 
-  })
-  const ct = r.headers.get('content-type') || ''
-  const data = ct.includes('application/json') ? await r.json() : await r.text()
-  if (!r.ok) throw new Error(data?.error || data?.message || r.statusText)
-  return data
+  };
+
+  if (isForm) {
+    fetchOptions.body = data instanceof FormData ? data : data ?? undefined;
+  } else if (typeof data !== 'undefined') {
+    fetchOptions.body = JSON.stringify(data);
+  }
+
+  const response = await fetch(`${BASE}${path}`, fetchOptions);
+  const contentType = response.headers.get('content-type') || '';
+  const payload = contentType.includes('application/json') ? await response.json() : await response.text();
+
+  if (!response.ok) {
+    const errorMessage = payload?.error || payload?.message || response.statusText;
+    const error = new Error(errorMessage);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+
+  return payload;
+}
+
+function withFormConfig(config = {}) {
+  return { ...config, isForm: true };
 }
 
 export const api = {
-  get: (p) => req(p),
-  post: (p, body) => req(p, { method: 'POST', body }),
-  patch: (p, body) => req(p, { method: 'PATCH', body }),
-  delete: (p) => req(p, { method: 'DELETE' }),
-}
+  get: (path, config) => request('get', path, undefined, config),
+  post: (path, data, config) => request('post', path, data, config),
+  patch: (path, data, config) => request('patch', path, data, config),
+  put: (path, data, config) => request('put', path, data, config),
+  delete: (path, config) => request('delete', path, undefined, config),
+  del: (path, config) => request('delete', path, undefined, config),
+  postForm: (path, data, config) => request('post', path, data, withFormConfig(config)),
+  patchForm: (path, data, config) => request('patch', path, data, withFormConfig(config)),
+};

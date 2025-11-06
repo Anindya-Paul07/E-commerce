@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { notify } from '@/lib/notify'
+import { useConfirm } from '@/context/useConfirm'
+import { buildFormData } from '@/lib/form-data'
 
 const EMPTY = {
   name: '', slug: '', description: '', image: '', parent: '', isActive: true, sortOrder: 0
@@ -29,13 +32,20 @@ export default function AdminCategoriesPage() {
   const [form, setForm] = useState(EMPTY)
   const [editingId, setEditingId] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [imageFile, setImageFile] = useState(null)
+  const [imageInputKey, setImageInputKey] = useState(0)
+  const confirm = useConfirm()
 
   async function load() {
     setLoading(true); setErr('')
     try {
       const { items } = await api.get('/categories?limit=200')
       setList(items || [])
-    } catch (e) { setErr(e.message || 'Failed to load') }
+    } catch (e) {
+      const message = e.message || 'Failed to load'
+      setErr(message)
+      notify.error(message)
+    }
     finally { setLoading(false) }
   }
   useEffect(() => { load() }, [])
@@ -50,16 +60,27 @@ export default function AdminCategoriesPage() {
     setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
   }
 
+  function onImageChange(event) {
+    const file = event.target.files?.[0] || null
+    setImageFile(file)
+  }
+
   async function createCat(e) {
     e.preventDefault()
     setSaving(true); setErr('')
     try {
       const payload = toPayload(form)
       if (!payload.name) throw new Error('Name is required')
-      await api.post('/categories', payload)
-      setForm(EMPTY); setEditingId(null)
+      const formData = buildFormData(payload, { image: imageFile || undefined })
+      await api.postForm('/categories', formData)
+      setForm(EMPTY); setEditingId(null); setImageFile(null); setImageInputKey(k => k + 1)
       await load()
-    } catch (e) { setErr(e.message || 'Create failed') }
+      notify.success('Category created')
+    } catch (e) {
+      const message = e.message || 'Create failed'
+      setErr(message)
+      notify.error(message)
+    }
     finally { setSaving(false) }
   }
 
@@ -74,6 +95,8 @@ export default function AdminCategoriesPage() {
       isActive: !!item.isActive,
       sortOrder: item.sortOrder ?? 0,
     })
+    setImageFile(null)
+    setImageInputKey(k => k + 1)
   }
 
   async function saveEdit(e) {
@@ -83,19 +106,33 @@ export default function AdminCategoriesPage() {
     try {
       const payload = toPayload(form)
       if (!payload.name) throw new Error('Name is required')
-      await api.patch(`/categories/${editingId}`, payload)
-      setForm(EMPTY); setEditingId(null)
+      const formData = buildFormData(payload, { image: imageFile || undefined })
+      await api.patchForm(`/categories/${editingId}`, formData)
+      setForm(EMPTY); setEditingId(null); setImageFile(null); setImageInputKey(k => k + 1)
       await load()
-    } catch (e) { setErr(e.message || 'Update failed') }
+      notify.success('Category updated')
+    } catch (e) {
+      const message = e.message || 'Update failed'
+      setErr(message)
+      notify.error(message)
+    }
     finally { setSaving(false) }
   }
 
   async function del(id) {
-    // eslint-disable-next-line no-alert
-    if (!confirm('Delete this category?')) return
+    const ok = await confirm('Delete this category?', { description: 'Categories in use must be reassigned before deletion.' })
+    if (!ok) return
     setErr('')
-    try { await api.delete(`/categories/${id}`); await load() }
-    catch (e) { setErr(e.message || 'Delete failed') }
+    try {
+      await api.delete(`/categories/${id}`)
+      await load()
+      notify.success('Category removed')
+    }
+    catch (e) {
+      const message = e.message || 'Delete failed'
+      setErr(message)
+      notify.error(message)
+    }
   }
 
   return (
@@ -108,10 +145,25 @@ export default function AdminCategoriesPage() {
       <Card>
         <CardHeader><CardTitle>{editingId ? 'Edit category' : 'New category'}</CardTitle></CardHeader>
         <CardContent>
-          <form onSubmit={editingId ? saveEdit : createCat} className="grid gap-3 sm:grid-cols-2">
+          <form
+            onSubmit={editingId ? saveEdit : createCat}
+            className="grid gap-3 sm:grid-cols-2"
+            encType="multipart/form-data"
+          >
             <input className="h-10 rounded-md border bg-background px-3" placeholder="Name" name="name" value={form.name} onChange={onChange} required />
             <input className="h-10 rounded-md border bg-background px-3" placeholder="Slug (optional)" name="slug" value={form.slug} onChange={onChange} />
             <input className="h-10 rounded-md border bg-background px-3" placeholder="Image URL (optional)" name="image" value={form.image} onChange={onChange} />
+            <div className="flex flex-col gap-1 text-sm">
+              <label className="font-medium">Upload image</label>
+              <input
+                key={imageInputKey}
+                type="file"
+                accept="image/*"
+                onChange={onImageChange}
+                className="text-xs"
+              />
+              {imageFile && <span className="text-muted-foreground">Selected: {imageFile.name}</span>}
+            </div>
             <select className="h-10 rounded-md border bg-background px-3" name="parent" value={form.parent} onChange={onChange}>
               {parentOptions.map(p => (
                 <option key={p._id || 'root'} value={p.slug || p._id}>{p.name}</option>

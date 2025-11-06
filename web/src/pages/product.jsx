@@ -4,6 +4,9 @@ import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
+import { notify } from '@/lib/notify'
+import { useAppDispatch } from '@/store/hooks'
+import { addToCart as addToCartThunk } from '@/store/slices/cartSlice'
 
 function formatPrice(n) {
   const num = Number(n)
@@ -16,10 +19,10 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
   const [adding, setAdding] = useState(false)
-  const [msg, setMsg] = useState('')
   const [availability, setAvailability] = useState(null)
   const [availLoading, setAvailLoading] = useState(true)
   const [availErr, setAvailErr] = useState('')
+  const dispatch = useAppDispatch()
 
   useEffect(() => {
     let active = true
@@ -46,17 +49,14 @@ export default function ProductPage() {
 
   async function addToCart() {
     if (!product?._id) return
-    setAdding(true); setMsg('')
+    setAdding(true)
     try {
-      await api.post('/cart/add', { productId: product._id, qty: 1 })
-      // keep navbar cart badge in sync
-      window.dispatchEvent(new CustomEvent('cart:updated'))
-      setMsg('Added to cart!')
+      await dispatch(addToCartThunk({ productId: product._id, qty: 1 }))
+      notify.success('Added to cart')
     } catch (e) {
-      setMsg(e.message || 'Failed to add to cart')
+      notify.error(e.message || 'Failed to add to cart')
     } finally {
       setAdding(false)
-      setTimeout(() => setMsg(''), 2000)
     }
   }
 
@@ -98,8 +98,6 @@ export default function ProductPage() {
           </Button>
           <Button variant="outline">Buy now</Button>
         </div>
-
-        {!!msg && <div className="text-sm">{msg}</div>}
 
         <div className="text-sm text-muted-foreground">
           {availLoading ? 'Checking stock…' : availErr ? 'Availability unavailable' : `Available: ${availability?.available ?? 0}`}

@@ -1,5 +1,7 @@
 import Category from '../model/category.model.js';
 import Product from '../model/product.model.js'; // for counts & product lists
+import { queueCategoryIndex, removeCategoryFromIndex } from '../search/indexer.js';
+import { toPublicUrl, cleanupReplacedUploads, removeUploads } from '../lib/upload.js';
 
 function slugify(s) {
   return s.toString().toLowerCase().trim()
@@ -10,6 +12,19 @@ function slugify(s) {
 
 function isObjectId(v) {
   return /^[0-9a-fA-F]{24}$/.test(String(v));
+}
+
+function normalizeImageField(value) {
+  const sanitize = (input) => {
+    const str = String(input ?? '').trim();
+    if (['null', 'undefined'].includes(str.toLowerCase())) return '';
+    return str;
+  };
+
+  if (Array.isArray(value)) {
+    return value.map(sanitize).find(Boolean) || '';
+  }
+  return sanitize(value);
 }
 
 export async function list(req, res, next) {
@@ -63,7 +78,15 @@ export async function getOne(req, res, next) {
 
 export async function create(req, res, next) {
   try {
-    const { name, description = '', image = '', parent = null, isActive = true, sortOrder = 0, slug } = req.body || {};
+    const {
+      name,
+      description = '',
+      image: imageInput,
+      parent = null,
+      isActive = true,
+      sortOrder = 0,
+      slug,
+    } = req.body || {};
     if (!name) return res.status(400).json({ error: 'name is required' });
 
     let finalSlug = (slug || slugify(name)).trim();
@@ -79,7 +102,11 @@ export async function create(req, res, next) {
       }
     }
 
+    const uploadedImage = req.file ? toPublicUrl(req.file) : null;
+    const image = uploadedImage || normalizeImageField(imageInput);
+
     const category = await Category.create({ name, slug: finalSlug, description, image, parent: parentId, isActive, sortOrder });
+    queueCategoryIndex(category);
     res.status(201).json({ category });
   } catch (e) { next(e); }
 }
@@ -88,6 +115,14 @@ export async function update(req, res, next) {
   try {
     const { id } = req.params;
     const updates = { ...req.body };
+
+    if (req.file) {
+      updates.image = toPublicUrl(req.file);
+    } else if (Object.prototype.hasOwnProperty.call(updates, 'image')) {
+      updates.image = normalizeImageField(updates.image);
+    } else {
+      delete updates.image;
+    }
 
     if (updates.name && !updates.slug) updates.slug = slugify(updates.name);
     if (updates.slug) {
@@ -104,8 +139,21 @@ export async function update(req, res, next) {
       if (String(updates.parent) === String(id)) return res.status(400).json({ error: 'Category cannot be its own parent' });
     }
 
-    const category = await Category.findByIdAndUpdate(id, updates, { new: true });
+    const category = await Category.findById(id);
     if (!category) return res.status(404).json({ error: 'Category not found' });
+
+    const previousImage = category.image;
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === undefined) delete updates[key];
+    });
+
+    category.set(updates);
+    await category.save();
+
+    await cleanupReplacedUploads(previousImage, category.image);
+
+    queueCategoryIndex(category);
     res.json({ category });
   } catch (e) { next(e); }
 }
@@ -122,6 +170,8 @@ export async function remove(req, res, next) {
 
     const category = await Category.findByIdAndDelete(id);
     if (!category) return res.status(404).json({ error: 'Category not found' });
+    removeCategoryFromIndex(id);
+    await removeUploads(category.image);
     res.json({ ok: true });
   } catch (e) { next(e); }
 }

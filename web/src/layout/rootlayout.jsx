@@ -8,7 +8,7 @@ export default function RootLayout() {
     <>
       <Navbar />
       <Header />
-      <main className="py-8">
+      <main className="bg-background py-8">
         <Outlet />
       </main>
       <Footer />

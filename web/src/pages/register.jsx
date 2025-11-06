@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { notify } from '@/lib/notify'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { register as registerThunk } from '@/store/slices/sessionSlice'
+import { fetchCart } from '@/store/slices/cartSlice'
 
 export default function Register() {
   const navigate = useNavigate()
@@ -10,19 +13,29 @@ export default function Register() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
-  const [loading, setLoading] = useState(false)
+  const dispatch = useAppDispatch()
+  const status = useAppSelector((state) => state.session.status)
+  const loading = status === 'loading'
 
   async function onSubmit(e) {
     e.preventDefault()
     setErr('')
-    setLoading(true)
     try {
-      await api.post('/auth/register', { name, email, password })
-      navigate('/')
-    } catch (e) {
-      setErr(e.message)
-    } finally {
-      setLoading(false)
+      const result = await dispatch(registerThunk({ name, email, password }))
+      if (registerThunk.fulfilled.match(result)) {
+        notify.success('Account created!')
+        dispatch(fetchCart())
+        const destination = result.payload?.roles?.includes('admin') ? '/admin' : '/'
+        navigate(destination, { replace: true })
+      } else {
+        const message = result.payload || result.error.message || 'Unable to create account'
+        setErr(message)
+        notify.error(message)
+      }
+    } catch (error) {
+      const message = error.message || 'Unable to create account'
+      setErr(message)
+      notify.error(message)
     }
   }
 

@@ -1,28 +1,70 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
+import { notify } from '@/lib/notify'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { logout as logoutThunk } from '@/store/slices/sessionSlice'
+
+const formatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+})
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({ orders: null, products: null, users: null })
+  const navigate = useNavigate()
+  const dispatch = useAppDispatch()
+  const user = useAppSelector((state) => state.session.user)
+  const sessionStatus = useAppSelector((state) => state.session.status)
+  const userLoading = sessionStatus === 'loading'
+  const [stats, setStats] = useState({ orders: 0, products: 0, users: 0, revenue: 0 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    let active = true
+    if (userLoading) return
+    if (!user?.roles?.includes('admin')) {
+      setLoading(false)
+      return
+    }
+
+    const controller = new AbortController()
     setLoading(true)
     setError('')
-    api.get('/admin/stats')
-      .then(data => { if (active) setStats(data || {}) })
-      .catch(err => { if (active) setError(err.message || 'Failed to load stats') })
-      .finally(() => { if (active) setLoading(false) })
-    return () => { active = false }
-  }, [])
 
-  const formatCount = (value) => {
-    if (value == null) return loading ? '—' : '0'
-    return new Intl.NumberFormat().format(value)
+    api.get('/stats', { signal: controller.signal })
+      .then((data) => {
+        setStats({
+          orders: data.orders ?? 0,
+          products: data.products ?? 0,
+          users: data.users ?? 0,
+          revenue: data.revenue ?? 0,
+        })
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return
+        setError(err.message || 'Failed to load stats')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [user, userLoading])
+
+  const cards = useMemo(() => ([
+    { label: 'Orders', value: stats.orders.toLocaleString() },
+    { label: 'Products', value: stats.products.toLocaleString() },
+    { label: 'Customers', value: stats.users.toLocaleString() },
+    { label: 'Revenue', value: formatter.format(stats.revenue) },
+  ]), [stats])
+
+  async function handleLogout() {
+    await dispatch(logoutThunk())
+    notify.info('Signed out')
+    navigate('/', { replace: true })
   }
 
   return (
@@ -33,26 +75,28 @@ export default function Dashboard() {
           <Button asChild><Link to="/admin/products">Manage Products</Link></Button>
           <Button asChild variant="outline"><Link to="/admin/categories">Manage Categories</Link></Button>
           <Button asChild variant="outline"><Link to="/admin/inventory">Manage Inventory</Link></Button>
+          <Button variant="ghost" onClick={handleLogout}>Logout</Button>
         </div>
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader><CardTitle>Orders</CardTitle></CardHeader>
-          <CardContent className="text-3xl font-semibold">{formatCount(stats.orders)}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>Products</CardTitle></CardHeader>
-          <CardContent className="text-3xl font-semibold">{formatCount(stats.products)}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>Users</CardTitle></CardHeader>
-          <CardContent className="text-3xl font-semibold">{formatCount(stats.users)}</CardContent>
-        </Card>
+     {error && <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
+
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {cards.map((card) => (
+          <Card key={card.label} className="bg-card shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">{card.label}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="skeleton h-9 w-20 rounded" />
+              ) : (
+                <div className="text-3xl font-semibold">{card.value}</div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
       </div>
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
       <p className="text-sm text-muted-foreground">Use the buttons above to jump into your catalog CMS.</p>
     </div>
   )

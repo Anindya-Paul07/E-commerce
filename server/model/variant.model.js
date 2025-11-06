@@ -17,6 +17,5 @@ const variantSchema = new mongoose.Schema(
 )
 
 variantSchema.index({ product: 1, status: 1 })
-variantSchema.index({ sku: 1 }, { unique: true })
 
 export default mongoose.model('Variant', variantSchema)

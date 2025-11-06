@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { notify } from '@/lib/notify'
 
 const STATUS = ['pending','paid','shipped','delivered','canceled']
 
@@ -11,22 +12,36 @@ export default function AdminOrdersPage() {
   const [err, setErr] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
-  async function load() {
-    setLoading(true); setErr('')
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErr('');
     try {
-      const q = statusFilter ? `?status=${statusFilter}` : ''
-      const { items } = await api.get(`/orders${q}`)
-      setItems(items || [])
-    } catch (e) { setErr(e.message || 'Failed to load') }
-    finally { setLoading(false) }
-  }
-  useEffect(() => { load() }, [statusFilter])
+      const q = statusFilter ? `?status=${statusFilter}` : '';
+      const { items: fetchedItems } = await api.get(`/orders${q}`);
+      setItems(fetchedItems || []);
+    } catch (e) {
+      const message = e.message || 'Failed to load';
+      setErr(message);
+      notify.error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   async function updateStatus(id, status) {
     try {
       const { order } = await api.patch(`/orders/${id}/status`, { status })
       setItems(prev => prev.map(o => o._id === id ? order : o))
-    } catch (e) { alert(e.message) }
+      notify.success(`Order ${order.number} set to ${status}`)
+    } catch (e) {
+      const message = e.message || 'Failed to update status'
+      setErr(message)
+      notify.error(message)
+    }
   }
 
   return (
