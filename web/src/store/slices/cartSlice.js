@@ -5,6 +5,9 @@ import { logout } from './sessionSlice.js';
 const initialState = {
   items: [],
   subtotal: 0,
+  discount: 0,
+  total: 0,
+  coupon: null,
   status: 'idle',
   error: null,
 };
@@ -12,6 +15,9 @@ const initialState = {
 const normalize = (payload) => ({
   items: payload?.cart?.items || [],
   subtotal: payload?.subtotal ?? 0,
+  discount: payload?.discount ?? payload?.cart?.coupon?.amount ?? 0,
+  total: payload?.total ?? (payload?.subtotal ?? 0) - (payload?.discount ?? payload?.cart?.coupon?.amount ?? 0),
+  coupon: payload?.cart?.coupon || null,
 });
 
 export const fetchCart = createAsyncThunk('cart/fetch', async () => {
@@ -39,6 +45,16 @@ export const clearCart = createAsyncThunk('cart/clear', async () => {
   return normalize(data);
 });
 
+export const applyCoupon = createAsyncThunk('cart/applyCoupon', async ({ code }) => {
+  const data = await api.post('/cart/coupon', { code });
+  return normalize(data);
+});
+
+export const removeCoupon = createAsyncThunk('cart/removeCoupon', async () => {
+  const data = await api.delete('/cart/coupon');
+  return normalize(data);
+});
+
 const cartSlice = createSlice({
   name: 'cart',
   initialState,
@@ -52,32 +68,67 @@ const cartSlice = createSlice({
         state.status = 'succeeded';
         state.items = action.payload.items;
         state.subtotal = action.payload.subtotal;
+        state.discount = action.payload.discount;
+        state.total = action.payload.total;
+        state.coupon = action.payload.coupon;
       })
       .addCase(fetchCart.rejected, (state, action) => {
         state.status = 'failed';
         state.error = action.error.message;
         state.items = [];
         state.subtotal = 0;
+        state.discount = 0;
+        state.total = 0;
+        state.coupon = null;
       })
       .addCase(addToCart.fulfilled, (state, action) => {
         state.items = action.payload.items;
         state.subtotal = action.payload.subtotal;
+        state.discount = action.payload.discount;
+        state.total = action.payload.total;
+        state.coupon = action.payload.coupon;
       })
       .addCase(updateCartItem.fulfilled, (state, action) => {
         state.items = action.payload.items;
         state.subtotal = action.payload.subtotal;
+        state.discount = action.payload.discount;
+        state.total = action.payload.total;
+        state.coupon = action.payload.coupon;
       })
       .addCase(removeCartItem.fulfilled, (state, action) => {
         state.items = action.payload.items;
         state.subtotal = action.payload.subtotal;
+        state.discount = action.payload.discount;
+        state.total = action.payload.total;
+        state.coupon = action.payload.coupon;
       })
       .addCase(clearCart.fulfilled, (state, action) => {
         state.items = action.payload.items;
         state.subtotal = action.payload.subtotal;
+        state.discount = action.payload.discount;
+        state.total = action.payload.total;
+        state.coupon = action.payload.coupon;
+      })
+      .addCase(applyCoupon.fulfilled, (state, action) => {
+        state.items = action.payload.items;
+        state.subtotal = action.payload.subtotal;
+        state.discount = action.payload.discount;
+        state.total = action.payload.total;
+        state.coupon = action.payload.coupon;
+      })
+      .addCase(removeCoupon.fulfilled, (state, action) => {
+        state.items = action.payload.items;
+        state.subtotal = action.payload.subtotal;
+        state.discount = action.payload.discount;
+        state.total = action.payload.total;
+        state.coupon = action.payload.coupon;
       })
       .addCase(logout.fulfilled, (state) => {
         state.items = [];
         state.subtotal = 0;
+        state.discount = 0;
+        state.total = 0;
+        state.coupon = null;
         state.status = 'idle';
         state.error = null;
       });

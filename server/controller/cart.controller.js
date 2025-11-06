@@ -3,7 +3,9 @@ import Product from '../model/product.model.js';
 import SellerListing from '../model/seller-listing.model.js';
 import CatalogProduct from '../model/catalog-product.model.js';
 import CatalogVariant from '../model/catalog-variant.model.js';
+import { evaluateCoupon } from '../lib/coupon.js';
 import { reserveForCart, releaseForCart, ensureDefaultVariantForProduct } from './inventory.controller.js';
+
 
 async function getOrCreateCart(userId) {
   let cart = await Cart.findOne({ user: userId });
@@ -71,10 +73,63 @@ function findCartItemIndex(cart, { listingId, variantId, productId }) {
   return -1;
 }
 
+function cartResponse(cart) {
+  const subtotal = cart.subtotal();
+  const discount = cart.discountTotal();
+  return {
+    cart,
+    subtotal,
+    discount,
+    total: Math.max(0, subtotal - discount),
+  };
+}
+
+async function refreshCartCoupon(cart, userId) {
+  if (!cart?.coupon?.code) return false;
+  try {
+    const subtotal = cart.subtotal();
+    const { coupon, payload } = await evaluateCoupon({
+      code: cart.coupon.code,
+      userId,
+      subtotal,
+    });
+    const existingMetadata = cart.coupon.metadata || {};
+    const nextMetadata = {
+      ...existingMetadata,
+      couponId: existingMetadata.couponId || coupon._id,
+    };
+    const appliedAt = cart.coupon.appliedAt || new Date();
+    const nextCoupon = {
+      ...payload,
+      metadata: nextMetadata,
+      appliedAt,
+    };
+    const prev = cart.coupon;
+    const amountsDiffer = Math.abs(Number(prev.amount || 0) - Number(nextCoupon.amount || 0)) > 0.0001;
+    const typeDiffers = prev.discountType !== nextCoupon.discountType;
+    const valueDiffers = Number(prev.discountValue || 0) !== Number(nextCoupon.discountValue || 0);
+    const metadataDiffers =
+      (prev.metadata?.couponId ? String(prev.metadata.couponId) : '') !==
+      (nextMetadata.couponId ? String(nextMetadata.couponId) : '');
+    if (amountsDiffer || typeDiffers || valueDiffers || metadataDiffers) {
+      cart.coupon = nextCoupon;
+      return true;
+    }
+    return false;
+  } catch (error) {
+    cart.coupon = undefined;
+    return true;
+  }
+}
+
 export async function getCart(req, res, next) {
   try {
     const cart = await getOrCreateCart(req.user._id);
-    res.json({ cart, subtotal: cart.subtotal() });
+    const changed = await refreshCartCoupon(cart, req.user._id);
+    if (changed) {
+      await cart.save();
+    }
+    res.json(cartResponse(cart));
   } catch (error) {
     next(error);
   }
@@ -131,8 +186,9 @@ export async function addItem(req, res, next) {
           });
         }
 
+        await refreshCartCoupon(cart, req.user._id);
         await cart.save();
-        return res.status(201).json({ cart, subtotal: cart.subtotal() });
+        return res.status(201).json(cartResponse(cart));
       } catch (error) {
         if (error?.statusCode) {
           return res.status(error.statusCode).json({ error: error.message });
@@ -175,8 +231,9 @@ export async function addItem(req, res, next) {
       });
     }
 
+    await refreshCartCoupon(cart, req.user._id);
     await cart.save();
-    return res.status(201).json({ cart, subtotal: cart.subtotal() });
+    return res.status(201).json(cartResponse(cart));
   } catch (error) {
     next(error);
   }
@@ -234,9 +291,10 @@ export async function updateItem(req, res, next) {
     }
 
     item.qty = nextQty;
+    await refreshCartCoupon(cart, req.user._id);
     await cart.save();
 
-    res.json({ cart, subtotal: cart.subtotal() });
+    res.json(cartResponse(cart));
   } catch (error) {
     next(error);
   }
@@ -270,8 +328,9 @@ export async function removeItem(req, res, next) {
       }
     }
 
+    await refreshCartCoupon(cart, req.user._id);
     await cart.save();
-    res.json({ cart, subtotal: cart.subtotal() });
+    res.json(cartResponse(cart));
   } catch (error) {
     next(error);
   }
@@ -304,9 +363,49 @@ export async function clearCart(req, res, next) {
 
     await Promise.allSettled(releases);
     cart.items = [];
+    cart.coupon = undefined;
     await cart.save();
 
-    res.json({ cart, subtotal: 0 });
+    res.json(cartResponse(cart));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function applyCoupon(req, res, next) {
+  try {
+    const { code } = req.body || {};
+    const cart = await getOrCreateCart(req.user._id);
+    const { coupon, payload } = await evaluateCoupon({
+      code,
+      userId: req.user._id,
+      subtotal: cart.subtotal(),
+    });
+
+    cart.coupon = {
+      ...payload,
+      metadata: {
+        couponId: coupon._id,
+      },
+      appliedAt: new Date(),
+    };
+    await cart.save();
+
+    res.json(cartResponse(cart));
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ error: error.message });
+    }
+    next(error);
+  }
+}
+
+export async function removeCoupon(req, res, next) {
+  try {
+    const cart = await getOrCreateCart(req.user._id);
+    cart.coupon = undefined;
+    await cart.save();
+    res.json(cartResponse(cart));
   } catch (error) {
     next(error);
   }

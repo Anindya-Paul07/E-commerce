@@ -2,6 +2,7 @@ import Product from '../model/product.model.js';
 import Category from '../model/category.model.js';
 import Variant from '../model/variant.model.js';
 import InventoryItem from '../model/inventoryItem.model.js';
+import Brand from '../model/brands.model.js';
 import { ensureDefaultVariantForProduct, receiveStock } from './inventory.controller.js';
 import { queueProductIndex, removeProductFromIndex } from '../search/indexer.js';
 import { mapUploadedFiles, cleanupReplacedUploads, removeUploads } from '../lib/upload.js';
@@ -80,6 +81,7 @@ export async function list(req, res, next) {
 
     const filter = {};
     const cat = (req.query.category || '').trim();
+    const brandFilter = (req.query.brand || '').trim();
     if (cat) {
       let catId = null;
       if (/^[0-9a-fA-F]{24}$/.test(cat)) catId = cat;
@@ -88,6 +90,13 @@ export async function list(req, res, next) {
         if (categoryDoc) catId = categoryDoc._id;
       }
       if (catId) filter.categories = catId;
+    }
+
+    if (brandFilter) {
+      let brandName = brandFilter;
+      const brandDoc = await Brand.findOne({ slug: brandFilter }).lean();
+      if (brandDoc?.name) brandName = brandDoc.name;
+      filter.brand = brandName;
     }
 
     if (status) filter.status = status;

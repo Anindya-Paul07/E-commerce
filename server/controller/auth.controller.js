@@ -45,7 +45,7 @@ export async function login(req, res, next) {
     res
       .cookie(ENV.COOKIE_NAME, token, {
         httpOnly: true,
-        sameSite: 'lax',
+        sameSite: ENV.COOKIE_SAMESITE, 
         secure: ENV.COOKIE_SECURE,
         maxAge: 7 * 24 * 60 * 60 * 1000,
       })
@@ -63,7 +63,7 @@ export async function me(req, res) {
 export async function logout(req, res) {
   res.clearCookie(ENV.COOKIE_NAME, {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: ENV.COOKIE_SAMESITE,
     secure: ENV.COOKIE_SECURE,
   });
   res.json({ ok: true });

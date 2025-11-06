@@ -1,33 +1,28 @@
 import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcryptjs";
 import User from "../model/user.model.js";
+import { logger } from "../lib/logger.js";
 
 export function localStrategy() {
   return new LocalStrategy(
     { usernameField: "email", passwordField: "password", session: false },
     async (email, password, done) => {
       try {
-        const user = await User.findOne({
-          email: (email || "").toLowerCase(),
-        }).select("+passwordHash +roles +name +email");
+        const user = await User.findOne({ email: (email || "").toLowerCase() })
+          .select("+passwordHash +roles +name +email");
 
-        console.log("[AUTH] login attempt:", email);
-        console.log(
-          "[AUTH] user found?",
-          !!user,
-          "has hash?",
-          !!user?.passwordHash
-        );
-
-        if (!user) return done(null, false, { message: "Invalid credentials" });
+        if (!user) {
+          // do NOT reveal which field is wrong
+          return done(null, false, { message: "Invalid credentials" });
+        }
 
         const ok = await bcrypt.compare(password, user.passwordHash || "");
-        console.log("[AUTH] password match?", ok);
-
         if (!ok) return done(null, false, { message: "Invalid credentials" });
+
+        logger.info({ email }, "[AUTH] login success");
         return done(null, user);
       } catch (e) {
-        console.error("[AUTH] error in local strategy:", e);
+        logger.error({ err: e }, "[AUTH] error in local strategy");
         return done(e);
       }
     }

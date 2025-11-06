@@ -1,10 +1,36 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Plus, Trash2, ArrowUp, ArrowDown, UploadCloud, Link2 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { notify } from '@/lib/notify'
 import { useTheme } from '@/context/ThemeContext'
+
+const HOMEPAGE_BROADCAST_CHANNEL = 'cms-homepage'
+const CUSTOM_LINK_VALUE = '__custom__'
+const BASE_LINK_OPTIONS = [
+  { value: '', label: 'No link' },
+  { value: '/', label: 'Homepage' },
+  { value: '/seller/apply', label: 'Seller application' },
+  { value: '/seller/dashboard', label: 'Seller dashboard' },
+  { value: '/cart', label: 'Cart' },
+  { value: '/login', label: 'Sign in' },
+  { value: '/register', label: 'Create account' },
+]
+
+function broadcastHomepageUpdate(data = {}) {
+  if (typeof window === 'undefined' || typeof window.BroadcastChannel === 'undefined') return
+  try {
+    const channel = new BroadcastChannel(HOMEPAGE_BROADCAST_CHANNEL)
+    channel.postMessage({ type: 'homepage:update', ...data })
+    channel.close()
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to broadcast homepage update', error)
+    }
+  }
+}
 
 const DEFAULT_CONTENT = {
   hero: {
@@ -13,6 +39,7 @@ const DEFAULT_CONTENT = {
     eyebrow: 'Marketplace reimagined',
     ctaLabel: 'Browse featured drops',
     ctaHref: '/collections/featured',
+    secondaryCta: { label: 'Become a marketplace seller', href: '/seller/apply' },
     backgroundImage: '',
     enabled: true,
   },
@@ -73,7 +100,14 @@ function hydrateHomepage(raw = {}) {
   return {
     ...DEFAULT_CONTENT,
     ...raw,
-    hero: { ...DEFAULT_CONTENT.hero, ...(raw.hero || {}) },
+    hero: {
+      ...DEFAULT_CONTENT.hero,
+      ...(raw.hero || {}),
+      secondaryCta: {
+        ...(DEFAULT_CONTENT.hero.secondaryCta || {}),
+        ...(raw.hero?.secondaryCta || {}),
+      },
+    },
     notification: { ...DEFAULT_CONTENT.notification, ...(raw.notification || {}) },
     categoryCapsules: {
       heading: { ...DEFAULT_CONTENT.categoryCapsules.heading, ...(raw.categoryCapsules?.heading || {}) },
@@ -102,7 +136,64 @@ export default function AdminStorefrontCMS() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [linkOptions, setLinkOptions] = useState(() => [...BASE_LINK_OPTIONS, { value: CUSTOM_LINK_VALUE, label: 'Custom URL…' }])
   const { setActivePreset: setGlobalTheme } = useTheme()
+
+  const uploadAsset = useCallback(async (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    try {
+      const response = await api.postForm('/admin/uploads', formData)
+      if (!response?.url) {
+        throw new Error('Upload failed')
+      }
+      notify.success('Image uploaded')
+      return response.url
+    } catch (err) {
+      notify.error(err?.message || 'Failed to upload image')
+      throw err
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      try {
+        const categories = await api.get('/categories?limit=200').catch(() => ({ items: [] }))
+        if (!active) return
+        const dynamic = Array.isArray(categories?.items)
+          ? categories.items
+              .filter((category) => category?.slug && category?.name)
+              .map((category) => ({
+                value: `/category/${category.slug}`,
+                label: `Category · ${category.name}`,
+              }))
+          : []
+        setLinkOptions(() => {
+          const dedupe = new Map()
+          ;[...BASE_LINK_OPTIONS, ...dynamic].forEach((option) => {
+            if (!option || typeof option.value === 'undefined') return
+            if (!dedupe.has(option.value)) dedupe.set(option.value, option)
+          })
+          const merged = [...dedupe.values()]
+          if (!merged.some((option) => option.value === CUSTOM_LINK_VALUE)) {
+            merged.push({ value: CUSTOM_LINK_VALUE, label: 'Custom URL…' })
+          }
+          return merged
+        })
+      } catch (err) {
+        if (!active) return
+        setLinkOptions((prev) => {
+          if (prev.some((option) => option.value === CUSTOM_LINK_VALUE)) return prev
+          return [...prev, { value: CUSTOM_LINK_VALUE, label: 'Custom URL…' }]
+        })
+        notify.error(err?.message || 'Failed to fetch categories for link options')
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -143,6 +234,16 @@ export default function AdminStorefrontCMS() {
     setContent((prev) => ({
       ...prev,
       hero: { ...prev.hero, [field]: value },
+    }))
+  }
+
+  function updateHeroCta(type, field, value) {
+    setContent((prev) => ({
+      ...prev,
+      hero: {
+        ...prev.hero,
+        [type]: { ...(prev.hero?.[type] || {}), [field]: value },
+      },
     }))
   }
 
@@ -296,6 +397,7 @@ export default function AdminStorefrontCMS() {
       setGlobalTheme(key, { presets: themes, overrides: content.theme?.overrides })
       await api.patch('/admin/themes/active', { key })
       notify.success('Active theme updated')
+      broadcastHomepageUpdate({ reason: 'theme-change', key, timestamp: Date.now() })
     } catch (err) {
       notify.error(err.message || 'Failed to update theme')
     }
@@ -311,6 +413,7 @@ export default function AdminStorefrontCMS() {
         overrides: payload?.theme?.overrides,
       })
       notify.success('Storefront CMS updated')
+      broadcastHomepageUpdate({ reason: 'content-update', timestamp: Date.now() })
     } catch (err) {
       notify.error(err.message || 'Failed to save storefront CMS')
     } finally {
@@ -374,25 +477,46 @@ export default function AdminStorefrontCMS() {
                 placeholder="Subheading"
               />
               <div className="grid gap-2 md:grid-cols-2">
-                <input
-                  className="h-9 w-full rounded-md border bg-background px-3"
-                  value={content.hero.ctaLabel}
-                  onChange={(e) => updateHero('ctaLabel', e.target.value)}
-                  placeholder="Primary CTA label"
-                />
-                <input
-                  className="h-9 w-full rounded-md border bg-background px-3"
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-muted-foreground">Primary CTA label</label>
+                  <input
+                    className="h-9 w-full rounded-md border bg-background px-3"
+                    value={content.hero.ctaLabel}
+                    onChange={(e) => updateHero('ctaLabel', e.target.value)}
+                    placeholder="Primary CTA label"
+                  />
+                </div>
+                <LinkPicker
+                  label="Primary CTA destination"
                   value={content.hero.ctaHref}
-                  onChange={(e) => updateHero('ctaHref', e.target.value)}
-                  placeholder="Primary CTA href"
+                  onChange={(href) => updateHero('ctaHref', href)}
+                  options={linkOptions}
                 />
               </div>
-              <input
-                className="h-9 w-full rounded-md border bg-background px-3"
+              <ImageUploadField
+                label="Background image"
                 value={content.hero.backgroundImage || ''}
-                onChange={(e) => updateHero('backgroundImage', e.target.value)}
+                onChange={(url) => updateHero('backgroundImage', url)}
+                onUpload={uploadAsset}
                 placeholder="Background image URL"
               />
+              <div className="grid gap-2 md:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-muted-foreground">Secondary CTA label</label>
+                  <input
+                    className="h-9 w-full rounded-md border bg-background px-3"
+                    value={content.hero.secondaryCta?.label || ''}
+                    onChange={(e) => updateHeroCta('secondaryCta', 'label', e.target.value)}
+                    placeholder="Secondary CTA label"
+                  />
+                </div>
+                <LinkPicker
+                  label="Secondary CTA destination"
+                  value={content.hero.secondaryCta?.href || ''}
+                  onChange={(href) => updateHeroCta('secondaryCta', 'href', href)}
+                  options={linkOptions}
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -431,11 +555,11 @@ export default function AdminStorefrontCMS() {
                   placeholder="CTA label"
                 />
               </div>
-              <input
-                className="h-9 w-full rounded-md border bg-background px-3"
+              <LinkPicker
+                label="CTA destination"
                 value={content.notification.ctaHref}
-                onChange={(e) => updateNotification('ctaHref', e.target.value)}
-                placeholder="CTA href"
+                onChange={(href) => updateNotification('ctaHref', href)}
+                options={linkOptions}
               />
             </CardContent>
           </Card>
@@ -459,17 +583,18 @@ export default function AdminStorefrontCMS() {
                   onChange={(e) => updateItem('carousel', index, 'caption', e.target.value)}
                   placeholder="Caption"
                 />
-                <input
-                  className="h-9 w-full rounded-md border bg-background px-3"
+                <ImageUploadField
+                  label="Slide image"
                   value={item.imageUrl}
-                  onChange={(e) => updateItem('carousel', index, 'imageUrl', e.target.value)}
+                  onChange={(url) => updateItem('carousel', index, 'imageUrl', url)}
+                  onUpload={uploadAsset}
                   placeholder="Image URL"
                 />
-                <input
-                  className="h-9 w-full rounded-md border bg-background px-3"
+                <LinkPicker
+                  label="Slide destination"
                   value={item.href}
-                  onChange={(e) => updateItem('carousel', index, 'href', e.target.value)}
-                  placeholder="Link"
+                  onChange={(href) => updateItem('carousel', index, 'href', href)}
+                  options={linkOptions}
                 />
               </div>
             )}
@@ -510,17 +635,18 @@ export default function AdminStorefrontCMS() {
                     placeholder="Expires at"
                   />
                 </div>
-                <input
-                  className="h-9 w-full rounded-md border bg-background px-3"
+                <ImageUploadField
+                  label="Image"
                   value={block.imageUrl}
-                  onChange={(e) => updateItem('couponBlocks', index, 'imageUrl', e.target.value)}
+                  onChange={(url) => updateItem('couponBlocks', index, 'imageUrl', url)}
+                  onUpload={uploadAsset}
                   placeholder="Image URL"
                 />
-                <input
-                  className="h-9 w-full rounded-md border bg-background px-3"
+                <LinkPicker
+                  label="Link destination"
                   value={block.href}
-                  onChange={(e) => updateItem('couponBlocks', index, 'href', e.target.value)}
-                  placeholder="Link"
+                  onChange={(href) => updateItem('couponBlocks', index, 'href', href)}
+                  options={linkOptions}
                 />
               </div>
             )}
@@ -552,19 +678,19 @@ export default function AdminStorefrontCMS() {
                   onChange={(e) => updateHeading('categoryCapsules', 'subtitle', e.target.value)}
                   placeholder="Subtitle"
                 />
-                <div className="grid gap-2 md:grid-cols-2">
-                  <input
-                    className="h-9 w-full rounded-md border bg-background px-3"
-                    value={content.categoryCapsules.cta?.label || ''}
-                    onChange={(e) => updateSectionCta('categoryCapsules', 'label', e.target.value)}
-                    placeholder="CTA label"
-                  />
-                  <input
-                    className="h-9 w-full rounded-md border bg-background px-3"
-                    value={content.categoryCapsules.cta?.href || ''}
-                    onChange={(e) => updateSectionCta('categoryCapsules', 'href', e.target.value)}
-                    placeholder="CTA href"
-                  />
+              <div className="grid gap-2 md:grid-cols-2">
+                <input
+                  className="h-9 w-full rounded-md border bg-background px-3"
+                  value={content.categoryCapsules.cta?.label || ''}
+                  onChange={(e) => updateSectionCta('categoryCapsules', 'label', e.target.value)}
+                  placeholder="CTA label"
+                />
+                <LinkPicker
+                  label="CTA destination"
+                  value={content.categoryCapsules.cta?.href || ''}
+                  onChange={(href) => updateSectionCta('categoryCapsules', 'href', href)}
+                  options={linkOptions}
+                />
                 </div>
               </div>
 
@@ -594,18 +720,19 @@ export default function AdminStorefrontCMS() {
                         onChange={(e) => updateItem('categoryCapsules', index, 'badge', e.target.value)}
                         placeholder="Badge"
                       />
-                      <input
-                        className="h-9 w-full rounded-md border bg-background px-3"
+                      <LinkPicker
+                        label="Link destination"
                         value={item.href}
-                        onChange={(e) => updateItem('categoryCapsules', index, 'href', e.target.value)}
-                        placeholder="Link"
+                        onChange={(href) => updateItem('categoryCapsules', index, 'href', href)}
+                        options={linkOptions}
                       />
                     </div>
-                    <input
-                      className="h-9 w-full rounded-md border bg-background px-3"
+                    <ImageUploadField
+                      label="Tile image"
                       value={item.mediaUrl}
-                      onChange={(e) => updateItem('categoryCapsules', index, 'mediaUrl', e.target.value)}
-                      placeholder="Media URL"
+                      onChange={(url) => updateItem('categoryCapsules', index, 'mediaUrl', url)}
+                      onUpload={uploadAsset}
+                      placeholder="Image URL"
                     />
                   </div>
                 )}
@@ -653,17 +780,18 @@ export default function AdminStorefrontCMS() {
                       onChange={(e) => updateItem('brandHighlights', index, 'description', e.target.value)}
                       placeholder="Description"
                     />
-                    <input
-                      className="h-9 w-full rounded-md border bg-background px-3"
+                    <ImageUploadField
+                      label="Logo"
                       value={brand.logoUrl}
-                      onChange={(e) => updateItem('brandHighlights', index, 'logoUrl', e.target.value)}
+                      onChange={(url) => updateItem('brandHighlights', index, 'logoUrl', url)}
+                      onUpload={uploadAsset}
                       placeholder="Logo URL"
                     />
-                    <input
-                      className="h-9 w-full rounded-md border bg-background px-3"
+                    <LinkPicker
+                      label="Destination"
                       value={brand.href}
-                      onChange={(e) => updateItem('brandHighlights', index, 'href', e.target.value)}
-                      placeholder="Link"
+                      onChange={(href) => updateItem('brandHighlights', index, 'href', href)}
+                      options={linkOptions}
                     />
                   </div>
                 )}
@@ -757,11 +885,11 @@ export default function AdminStorefrontCMS() {
                   onChange={(e) => updateSellerCtaLink('primaryCta', 'label', e.target.value)}
                   placeholder="Primary CTA"
                 />
-                <input
-                  className="h-9 w-full rounded-md border bg-background px-3"
+                <LinkPicker
+                  label="Primary destination"
                   value={content.sellerCta.primaryCta?.href || ''}
-                  onChange={(e) => updateSellerCtaLink('primaryCta', 'href', e.target.value)}
-                  placeholder="Primary href"
+                  onChange={(href) => updateSellerCtaLink('primaryCta', 'href', href)}
+                  options={linkOptions}
                 />
               </div>
               <div className="grid gap-2 md:grid-cols-2">
@@ -771,11 +899,11 @@ export default function AdminStorefrontCMS() {
                   onChange={(e) => updateSellerCtaLink('secondaryCta', 'label', e.target.value)}
                   placeholder="Secondary CTA"
                 />
-                <input
-                  className="h-9 w-full rounded-md border bg-background px-3"
+                <LinkPicker
+                  label="Secondary destination"
                   value={content.sellerCta.secondaryCta?.href || ''}
-                  onChange={(e) => updateSellerCtaLink('secondaryCta', 'href', e.target.value)}
-                  placeholder="Secondary href"
+                  onChange={(href) => updateSellerCtaLink('secondaryCta', 'href', href)}
+                  options={linkOptions}
                 />
               </div>
             </CardContent>
@@ -809,6 +937,140 @@ function ThemeSelector({ themes, active, onChange }) {
           <option value={active}>{active}</option>
         )}
       </select>
+    </div>
+  )
+}
+
+function ImageUploadField({ label, value, onChange, onUpload, placeholder = 'Image URL', className }) {
+  const inputRef = useRef(null)
+  const [uploading, setUploading] = useState(false)
+
+  async function handleFileChange(event) {
+    const file = event.target.files?.[0]
+    if (!file || !onUpload) return
+    try {
+      setUploading(true)
+      const url = await onUpload(file)
+      if (url) onChange?.(url)
+    } catch (error) {
+      // upload handler surfaces notifications
+    } finally {
+      setUploading(false)
+      if (event.target) event.target.value = ''
+    }
+  }
+
+  const containerClass = ['space-y-1', className].filter(Boolean).join(' ')
+
+  return (
+    <div className={containerClass}>
+      {label && (
+        <label className="text-sm font-medium text-muted-foreground" htmlFor={label.replace(/\s+/g, '-').toLowerCase()}>
+          {label}
+        </label>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          id={label ? label.replace(/\s+/g, '-').toLowerCase() : undefined}
+          className="h-9 flex-1 rounded-md border bg-background px-3"
+          value={value || ''}
+          onChange={(e) => onChange?.(e.target.value)}
+          placeholder={placeholder}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading || !onUpload}
+        >
+          <UploadCloud className="mr-1 h-4 w-4" />
+          {uploading ? 'Uploading…' : 'Upload'}
+        </Button>
+        {value && (
+          <Button type="button" size="sm" variant="ghost" onClick={() => onChange?.('')} disabled={uploading}>
+            Clear
+          </Button>
+        )}
+      </div>
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+      {value && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="truncate">{value}</span>
+          <a href={value} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+            Preview
+          </a>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LinkPicker({ label, value, onChange, options = BASE_LINK_OPTIONS, className }) {
+  const optionsWithCustom = useMemo(() => {
+    const base = options && options.length ? options : BASE_LINK_OPTIONS
+    return base.some((option) => option.value === CUSTOM_LINK_VALUE)
+      ? base
+      : [...base, { value: CUSTOM_LINK_VALUE, label: 'Custom URL…' }]
+  }, [options])
+
+  const isCustom = Boolean(value) && !optionsWithCustom.some((option) => option.value === value)
+  const [customValue, setCustomValue] = useState(() => (isCustom ? value : ''))
+  const [selectValue, setSelectValue] = useState(() => (isCustom ? CUSTOM_LINK_VALUE : value || ''))
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    const custom = Boolean(value) && !optionsWithCustom.some((option) => option.value === value)
+    setSelectValue(custom ? CUSTOM_LINK_VALUE : value || '')
+    setCustomValue(custom ? value || '' : '')
+  }, [value, optionsWithCustom])
+
+  const handleSelectChange = (event) => {
+    const next = event.target.value
+    setSelectValue(next)
+    if (next === CUSTOM_LINK_VALUE) {
+      requestAnimationFrame(() => inputRef.current?.focus())
+    } else {
+      onChange?.(next)
+    }
+  }
+
+  const handleCustomChange = (event) => {
+    const next = event.target.value
+    setCustomValue(next)
+    onChange?.(next)
+  }
+
+  const containerClass = ['space-y-1', className].filter(Boolean).join(' ')
+
+  return (
+    <div className={containerClass}>
+      {label && (
+        <label className="flex items-center gap-1 text-sm font-medium text-muted-foreground">
+          <Link2 className="h-4 w-4" />
+          {label}
+        </label>
+      )}
+      <select
+        className="h-9 w-full rounded-md border bg-background px-3"
+        value={selectValue}
+        onChange={handleSelectChange}
+      >
+        {optionsWithCustom.map((option) => (
+          <option key={option.value || 'none'} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {selectValue === CUSTOM_LINK_VALUE && (
+        <input
+          ref={inputRef}
+          className="h-9 w-full rounded-md border bg-background px-3"
+          value={customValue}
+          onChange={handleCustomChange}
+          placeholder="https://example.com or /path"
+        />
+      )}
     </div>
   )
 }

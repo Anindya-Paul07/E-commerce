@@ -31,6 +31,8 @@ import sellerPageRoutes from './router/sellerpage.route.js';
 import adminSellerPageRoutes from './router/admin-sellerpage.route.js';
 import themeRoutes from './router/theme.route.js';
 import adminThemeRoutes from './router/admin-theme.route.js';
+import adminCouponRoutes from './router/admin-coupon.route.js';
+import adminUploadRoutes from './router/admin-upload.route.js';
 
 const app = express();
 
@@ -70,6 +72,8 @@ app.use('/api/seller-page', sellerPageRoutes);
 app.use('/api/admin/seller-page', adminSellerPageRoutes);
 app.use('/api/themes', themeRoutes);
 app.use('/api/admin/themes', adminThemeRoutes);
+app.use('/api/admin/coupons', adminCouponRoutes);
+app.use('/api/admin/uploads', adminUploadRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -61,9 +61,14 @@ export default function SellerDashboard() {
             Track recent orders and catalogue health at a glance.
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link to="/admin/inventory">Manage inventory</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link to="/admin/inventory">Manage inventory</Link>
+          </Button>
+          <Button asChild>
+            <Link to="/seller/cms">Customize storefront</Link>
+          </Button>
+        </div>
       </div>
 
       {error && (

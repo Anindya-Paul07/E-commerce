@@ -1,5 +1,6 @@
 import Order from '../model/order.model.js';
 import Cart from '../model/cart.model.js';
+import { evaluateCoupon, incrementRedemptionCount } from '../lib/coupon.js';
 import { commitForOrder, releaseForCart } from './inventory.controller.js';
 import { queueFulfillmentForOrder } from '../lib/fulfillment.js';
 import { logger } from '../lib/logger.js';
@@ -13,15 +14,44 @@ function orderNumber() {
 
 export async function checkout(req, res, next) {
   try {
-    const { shippingAddress = {}, paymentMethod = 'cod', notes = '' } = req.body || {};
+    const { shippingAddress = {}, paymentMethod = 'cod', notes = '', couponCode } = req.body || {};
     const cart = await Cart.findOne({ user: req.user._id });
     if (!cart || cart.items.length === 0) return res.status(400).json({ error: 'Cart is empty' });
 
     // totals
     const subtotal = cart.items.reduce((s, it) => s + it.price * it.qty, 0);
+    let discountTotal = 0;
+    let couponPayload = null;
+    let couponId = null;
+    const couponSource = couponCode || cart.coupon?.code;
+    if (couponSource) {
+      try {
+        const { coupon, payload, amount } = await evaluateCoupon({
+          code: couponSource,
+          userId: req.user._id,
+          subtotal,
+        });
+        discountTotal = amount;
+        const existingMetadata = cart.coupon?.metadata || {};
+        couponPayload = {
+          ...payload,
+          metadata: {
+            ...existingMetadata,
+            couponId: coupon._id,
+          },
+        };
+        couponId = coupon._id;
+      } catch (error) {
+        if (couponCode) {
+          return res.status(error.status || 400).json({ error: error.message });
+        }
+        cart.coupon = undefined;
+      }
+    }
+
     const shipping = 0;
     const tax = 0;
-    const total = subtotal + shipping + tax;
+    const total = Math.max(0, subtotal - discountTotal + shipping + tax);
 
     const now = new Date();
     const items = cart.items.map((itemDoc) => {
@@ -49,7 +79,12 @@ export async function checkout(req, res, next) {
       number: orderNumber(),
       user: req.user._id,
       items,
-      subtotal, shipping, tax, total,
+      subtotal,
+      discountTotal,
+      coupon: couponPayload,
+      shipping,
+      tax,
+      total,
       currency: cart.currency || 'USD',
       status: 'pending',
       paymentMethod,
@@ -113,7 +148,12 @@ export async function checkout(req, res, next) {
 
     // Clear cart
     cart.items = [];
+    cart.coupon = undefined;
     await cart.save();
+
+    if (couponId) {
+      incrementRedemptionCount(couponId).catch(() => {});
+    }
 
     res.status(201).json({ order });
   } catch (e) { next(e); }

@@ -10,6 +10,8 @@ import {
   updateCartItem as updateCartItemThunk,
   removeCartItem as removeCartItemThunk,
   clearCart as clearCartThunk,
+  applyCoupon as applyCouponThunk,
+  removeCoupon as removeCouponThunk,
 } from '@/store/slices/cartSlice';
 
 export default function CartPage() {
@@ -17,10 +19,15 @@ export default function CartPage() {
   const confirm = useConfirm();
   const items = useAppSelector((state) => state.cart.items);
   const subtotal = useAppSelector((state) => state.cart.subtotal);
+  const discount = useAppSelector((state) => state.cart.discount);
+  const total = useAppSelector((state) => state.cart.total);
+  const coupon = useAppSelector((state) => state.cart.coupon);
   const cartStatus = useAppSelector((state) => state.cart.status);
   const [err, setErr] = useState('');
   const [placing, setPlacing] = useState(false);
   const [placed, setPlaced] = useState(null);
+  const [couponInput, setCouponInput] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
   const [addr, setAddr] = useState({
     fullName: '',
     phone: '',

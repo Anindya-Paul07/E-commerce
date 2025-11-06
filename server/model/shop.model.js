@@ -46,6 +46,59 @@ const heroAssetSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const marketingHeroSchema = new mongoose.Schema(
+  {
+    eyebrow: { type: String, trim: true, default: '' },
+    title: { type: String, trim: true, default: '' },
+    subtitle: { type: String, trim: true, default: '' },
+    backgroundImage: { type: String, trim: true, default: '' },
+    primaryCta: {
+      label: { type: String, trim: true, default: '' },
+      href: { type: String, trim: true, default: '' },
+    },
+    secondaryCta: {
+      label: { type: String, trim: true, default: '' },
+      href: { type: String, trim: true, default: '' },
+    },
+  },
+  { _id: false }
+);
+
+const marketingCarouselSchema = new mongoose.Schema(
+  {
+    title: { type: String, trim: true, default: '' },
+    caption: { type: String, trim: true, default: '' },
+    imageUrl: { type: String, trim: true, default: '' },
+    href: { type: String, trim: true, default: '' },
+    order: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
+
+const marketingPaletteSchema = new mongoose.Schema(
+  {
+    accentColor: { type: String, trim: true, default: '' },
+    heroGradient: { type: String, trim: true, default: '' },
+    backgroundStyle: { type: String, trim: true, default: '' },
+  },
+  { _id: false }
+);
+
+const MARKETING_HERO_DEFAULTS = Object.freeze({
+  eyebrow: 'Inside the flagship',
+  title: 'Welcome to our storefront',
+  subtitle: 'Curated collections and signature releases from our studio.',
+  backgroundImage: '',
+  primaryCta: { label: 'Shop collection', href: '/products' },
+  secondaryCta: { label: 'Contact us', href: '/support' },
+});
+
+const MARKETING_PALETTE_DEFAULTS = Object.freeze({
+  accentColor: '#6366f1',
+  heroGradient: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(14,165,233,0.08))',
+  backgroundStyle: 'radial-gradient(circle at top, rgba(99,102,241,0.12), transparent 55%)',
+});
+
 const shopSchema = new mongoose.Schema(
   {
     seller: {
@@ -112,6 +165,14 @@ const shopSchema = new mongoose.Schema(
       country: { type: String, default: 'US' },
       currency: { type: String, default: 'USD' },
       fulfillmentMode: { type: String, enum: ['platform', 'hybrid'], default: 'platform' },
+    },
+    marketing: {
+      hero: { type: marketingHeroSchema, default: () => ({ ...MARKETING_HERO_DEFAULTS }) },
+      carousel: { type: [marketingCarouselSchema], default: () => [] },
+      palette: { type: marketingPaletteSchema, default: () => ({ ...MARKETING_PALETTE_DEFAULTS }) },
+      version: { type: Number, default: 1 },
+      published: { type: Boolean, default: true },
+      updatedAt: { type: Date, default: () => new Date() },
     },
   },
   { timestamps: true }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,7 +19,14 @@ import {
 function hydrateCms(raw = {}) {
   const fallback = MOCK_HOMEPAGE_CONTENT
   return {
-    hero: { ...fallback.hero, ...(raw.hero || {}) },
+    hero: {
+      ...fallback.hero,
+      ...(raw.hero || {}),
+      secondaryCta: {
+        ...(fallback.hero?.secondaryCta || {}),
+        ...(raw.hero?.secondaryCta || {}),
+      },
+    },
     carousel: Array.isArray(raw.carousel) ? raw.carousel : fallback.carousel,
     notification: { ...fallback.notification, ...(raw.notification || {}) },
     couponBlocks: Array.isArray(raw.couponBlocks) ? raw.couponBlocks : fallback.couponBlocks,
@@ -43,6 +50,12 @@ function hydrateCms(raw = {}) {
   }
 }
 
+const HOMEPAGE_BROADCAST_CHANNEL = 'cms-homepage'
+
+function isExternalLink(href) {
+  return typeof href === 'string' && /^https?:\/\//i.test(href)
+}
+
 function normalizeOverrides(overrides) {
   if (!overrides || typeof overrides !== 'object') return undefined
   if (overrides instanceof Map) {
@@ -64,12 +77,30 @@ export default function Home() {
   const [cmsLoading, setCmsLoading] = useState(true)
   const { presets: themePresets, activePreset: globalTheme, setActivePreset: applyThemePreset } = useTheme()
   const appliedThemeRef = useRef({ key: null, overridesSig: null, presetSig: null })
+  const [activeSlide, setActiveSlide] = useState(0)
 
   const dispatch = useAppDispatch()
 
   const [showCatMenu, setShowCatMenu] = useState(false)
   const catMenuRef = useRef(null)
   const productsRef = useRef(null)
+
+  const applyCmsPayload = useCallback((content) => {
+    const hasPublishedContent = Boolean(content) && content.published !== false
+    const nextCms = hasPublishedContent ? hydrateCms(content) : MOCK_HOMEPAGE_CONTENT
+    setCms(nextCms)
+    return nextCms
+  }, [])
+
+  const refreshCms = useCallback(async () => {
+    try {
+      const { content } = await api.get('/homepage')
+      return applyCmsPayload(content)
+    } catch (error) {
+      applyCmsPayload(null)
+      throw error
+    }
+  }, [applyCmsPayload])
 
   useEffect(() => {
     ;(async () => {
@@ -104,26 +135,24 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    let active = true
+    let cancelled = false
     ;(async () => {
       try {
         setCmsLoading(true)
-        const { content } = await api.get('/homepage')
-        if (!active) return
-        const hasPublishedContent = Boolean(content) && content.published !== false
-        const nextCms = hasPublishedContent ? hydrateCms(content) : MOCK_HOMEPAGE_CONTENT
-        setCms(nextCms)
-      } catch {
-        if (!active) return
-        setCms(MOCK_HOMEPAGE_CONTENT)
+        await refreshCms()
+      } catch (error) {
+        if (process.env.NODE_ENV !== 'production') {
+          // eslint-disable-next-line no-console
+          console.warn('Failed to load homepage content', error)
+        }
       } finally {
-        if (active) setCmsLoading(false)
+        if (!cancelled) setCmsLoading(false)
       }
     })()
     return () => {
-      active = false
+      cancelled = true
     }
-  }, [])
+  }, [refreshCms])
 
   const cmsThemeKey = cms.theme?.activePreset
   const cmsOverrides = normalizeOverrides(cms.theme?.overrides)
@@ -146,6 +175,25 @@ export default function Home() {
     applyThemePreset(nextKey, { presets: themePresets, overrides: cmsOverrides })
     appliedThemeRef.current = { key: nextKey, overridesSig, presetSig }
   }, [applyThemePreset, cmsOverrides, cmsThemeKey, globalTheme, themePresets])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.BroadcastChannel === 'undefined') return undefined
+    let cancelled = false
+    const channel = new BroadcastChannel(HOMEPAGE_BROADCAST_CHANNEL)
+    channel.onmessage = (event) => {
+      if (!event?.data || event.data.type !== 'homepage:update') return
+      setCmsLoading(true)
+      refreshCms()
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) setCmsLoading(false)
+        })
+    }
+    return () => {
+      cancelled = true
+      channel.close()
+    }
+  }, [refreshCms])
 
   useEffect(() => {
     function onDocClick(e) {
@@ -172,6 +220,19 @@ export default function Home() {
   const testimonialsSection = cms.testimonials?.items?.length
     ? cms.testimonials.items
     : MOCK_HOMEPAGE_CONTENT.testimonials.items
+  const carouselItems = Array.isArray(cms.carousel) && cms.carousel.length ? cms.carousel : []
+
+  useEffect(() => {
+    setActiveSlide(0)
+  }, [carouselItems.length])
+
+  useEffect(() => {
+    if (carouselItems.length <= 1) return undefined
+    const timer = setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % carouselItems.length)
+    }, 7000)
+    return () => clearInterval(timer)
+  }, [carouselItems.length])
 
   function scrollToProducts() {
     productsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -278,6 +339,81 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        {carouselItems.length > 0 && (
+          <section className="rounded-3xl border bg-card/80 p-6 shadow-lg backdrop-blur">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Now trending</p>
+                <h2 className="text-2xl font-semibold text-foreground">Featured campaigns</h2>
+              </div>
+              {carouselItems.length > 1 && (
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="icon" onClick={() => setActiveSlide((prev) => (carouselItems.length ? (prev - 1 + carouselItems.length) % carouselItems.length : prev))} aria-label="Previous slide">
+                    <span aria-hidden="true">‹</span>
+                  </Button>
+                  <Button type="button" variant="outline" size="icon" onClick={() => setActiveSlide((prev) => (carouselItems.length ? (prev + 1) % carouselItems.length : prev))} aria-label="Next slide">
+                    <span aria-hidden="true">›</span>
+                  </Button>
+                </div>
+              )}
+            </div>
+            <div className="relative mt-4 h-[320px] overflow-hidden rounded-2xl bg-background">
+              {carouselItems.map((slide, index) => {
+                const isActive = index === activeSlide
+                const image = slide.imageUrl || cms.hero?.backgroundImage || 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80'
+                const linkHref = slide.href && slide.href.trim()
+                return (
+                  <article
+                    key={slide._id || slide.order || index}
+                    className={`absolute inset-0 transition-all duration-700 ease-out ${isActive ? 'opacity-100 translate-x-0' : 'pointer-events-none opacity-0 translate-x-6'}`}
+                  >
+                    <img src={image} alt={slide.title || 'Spotlight campaign'} className="h-full w-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                    <div className="absolute inset-x-0 bottom-0 space-y-3 p-6 text-white">
+                      <p className="text-xs uppercase tracking-[0.3em] text-white/70">Featured</p>
+                      <h3 className="text-2xl font-semibold">{slide.title || 'Campaign spotlight'}</h3>
+                      {slide.caption && <p className="max-w-xl text-sm text-white/80">{slide.caption}</p>}
+                      {linkHref && (
+                        <Button
+                          asChild
+                          size="sm"
+                          className="bg-white/20 text-white hover:bg-white/30"
+                        >
+                          {isExternalLink(linkHref) ? (
+                            <a href={linkHref} target="_blank" rel="noreferrer">
+                              Explore campaign
+                            </a>
+                          ) : (
+                            <Link to={linkHref}>
+                              Explore campaign
+                            </Link>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+            {carouselItems.length > 1 && (
+              <div className="mt-4 flex items-center justify-center gap-2">
+                {carouselItems.map((_, index) => {
+                  const isActive = index === activeSlide
+                  return (
+                    <button
+                      key={`carousel-dot-${index}`}
+                      type="button"
+                      onClick={() => setActiveSlide(index)}
+                      className={`h-2 w-2 rounded-full transition ${isActive ? 'bg-primary' : 'bg-muted-foreground/40'}`}
+                      aria-label={`Go to slide ${index + 1}`}
+                    />
+                  )
+                })}
+              </div>
+            )}
+          </section>
+        )}
 
         {cms.notification?.enabled && (
           <div className="rounded-2xl border bg-card/80 px-6 py-4 text-sm shadow-sm">

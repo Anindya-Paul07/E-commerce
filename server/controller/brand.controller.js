@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 import Brand from '../model/brands.model.js';
+import Product from '../model/product.model.js';
 import { toPublicUrl, cleanupReplacedUploads, removeUploads } from '../lib/upload.js';
+
+function escapeRegex(value = '') {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function slugify(s) {
   return s
@@ -32,17 +37,56 @@ export async function list(req, res, next) {
     const q = (req.query.q || '').trim();
     const status = (req.query.status || '').trim();
     const sort = req.query.sort || 'sortOrder name';
+    const initial = (req.query.initial || '').trim();
 
     const filter = {};
     if (status) filter.status = status;
     if (q) filter.$text = { $search: q };
+    if (initial) {
+      if (initial === '#') {
+        filter.name = { $regex: '^[^a-zA-Z]', $options: 'i' };
+      } else {
+        filter.name = { $regex: `^${escapeRegex(initial)}`, $options: 'i' };
+      }
+    }
 
-    const [items, total] = await Promise.all([
-      Brand.find(filter).sort(sort).skip((page - 1) * limit).limit(limit),
+    const [docs, total] = await Promise.all([
+      Brand.find(filter).sort(sort).skip((page - 1) * limit).limit(limit).lean(),
       Brand.countDocuments(filter),
     ]);
 
-    res.json({ items, total, page, pages: Math.ceil(total / limit) });
+    const brandNames = docs.map((doc) => doc.name).filter(Boolean);
+    let metricsByBrand = new Map();
+    if (brandNames.length) {
+      const aggregates = await Product.aggregate([
+        { $match: { brand: { $in: brandNames } } },
+        {
+          $group: {
+            _id: '$brand',
+            productCount: { $sum: 1 },
+            minPrice: { $min: '$price' },
+            maxPrice: { $max: '$price' },
+          },
+        },
+      ]);
+      metricsByBrand = new Map(
+        aggregates.map((entry) => [
+          entry._id,
+          {
+            productCount: entry.productCount,
+            minPrice: entry.minPrice,
+            maxPrice: entry.maxPrice,
+          },
+        ]),
+      );
+    }
+
+    const items = docs.map((doc) => ({
+      ...doc,
+      metrics: metricsByBrand.get(doc.name) || { productCount: 0 },
+    }));
+
+    res.json({ items, total, page, pages: Math.ceil(total / (limit || 1)) });
   } catch (e) { next(e); }
 }
 
@@ -51,13 +95,33 @@ export async function getOne(req, res, next) {
     const idOrSlug = req.params.id;
     let doc = null;
     if (mongoose.isValidObjectId(idOrSlug)) {
-      doc = await Brand.findById(idOrSlug);
+      doc = await Brand.findById(idOrSlug).lean();
     }
     if (!doc) {
-      doc = await Brand.findOne({ slug: idOrSlug });
+      doc = await Brand.findOne({ slug: idOrSlug }).lean();
     }
     if (!doc) return res.status(404).json({ error: 'Brand not found' });
-    res.json({ brand: doc });
+
+    const metrics = await Product.aggregate([
+      { $match: { brand: doc.name } },
+      {
+        $group: {
+          _id: '$brand',
+          productCount: { $sum: 1 },
+          minPrice: { $min: '$price' },
+          maxPrice: { $max: '$price' },
+        },
+      },
+    ]);
+    const stats = metrics[0]
+      ? {
+          productCount: metrics[0].productCount,
+          minPrice: metrics[0].minPrice,
+          maxPrice: metrics[0].maxPrice,
+        }
+      : { productCount: 0 };
+
+    res.json({ brand: { ...doc, metrics: stats } });
   } catch (e) { next(e); }
 }
 

@@ -7,6 +7,7 @@ import Product from '@/pages/product'
 import CategoryPage from '@/pages/category'
 import Cart from '@/pages/cart'
 import SellerApplicationPage from '@/pages/seller/apply'
+import BrandDetailPage from '@/pages/brand-detail'
 
 import AdminLayout from '@/layout/adminlayout'
 import Dashboard from '@/pages/admin/dashboard'
@@ -18,8 +19,10 @@ import AdminInventory from '@/pages/admin/inventory'
 import AdminSellerReviewPage from '@/pages/admin/sellers'
 import AdminStorefrontCMS from '@/pages/admin/storefront'
 import AdminShopCMS from '@/pages/admin/shop'
+import AdminCouponsPage from '@/pages/admin/coupons'
 import SellerGate from '@/components/SellerGate'
 import SellerDashboard from '@/pages/seller/dashboard'
+import SellerStorefrontPage from '@/pages/seller/storefront'
 
 export default function App() {
   return (
@@ -30,6 +33,7 @@ export default function App() {
           <Route path="/product/:slug" element={<Product />} />
           <Route path="/category/:slug" element={<CategoryPage />} />
           <Route path='/cart' element={<Cart />} />
+          <Route path="/brand/:slug" element={<BrandDetailPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/seller/apply" element={<SellerApplicationPage />} />
@@ -38,6 +42,14 @@ export default function App() {
             element={(
               <SellerGate>
                 <SellerDashboard />
+              </SellerGate>
+            )}
+          />
+          <Route
+            path="/seller/cms"
+            element={(
+              <SellerGate>
+                <SellerStorefrontPage />
               </SellerGate>
             )}
           />
@@ -50,6 +62,7 @@ export default function App() {
           <Route path="/admin/orders" element={<AdminOrdersPage />} />
           <Route path="/admin/sellers" element={<AdminSellerReviewPage />} />
           <Route path="/admin/storefront" element={<AdminStorefrontCMS />} />
+          <Route path="/admin/coupons" element={<AdminCouponsPage />} />
           <Route path="/admin/shop" element={<AdminShopCMS />} />
           <Route path="/admin/warehouses" element={<AdminWarehouses />} />
           <Route path="/admin/inventory" element={<AdminInventory />} />

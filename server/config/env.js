@@ -11,6 +11,7 @@ const env = cleanEnv(process.env, {
   CLIENT_ORIGIN: str({ devDefault: 'http://localhost:5173' }),
   COOKIE_NAME: str({ default: 'ecom_jwt' }),
   COOKIE_SECURE: bool({ default: false }),
+  COOKIE_SAMESITE: str({ default: 'lax', choices: ['lax', 'strict', 'none'] }),
   LOG_LEVEL: str({ default: 'info' }),
 });
 

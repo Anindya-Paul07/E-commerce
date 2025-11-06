@@ -4,10 +4,10 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon server.js",
-    "start": "node server.js",
-    "seed:Admin": "node seedAdmin.mjs",
-    "seed:catalog": "node seedCatalog.mjs",
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "seed:Admin": "node src/seedAdmin.mjs",
+    "seed:catalog": "node src/seedCatalog.mjs",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js"
   },
   "keywords": [],
