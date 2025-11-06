@@ -51,7 +51,34 @@ export async function checkout(req, res, next) {
 
     const shipping = 0;
     const tax = 0;
-    const total = Math.max(0, subtotal - discountTotal + shipping + tax);
+
+    let discount = 0;
+    let couponInfo = null;
+    if (cart.coupon?.couponId) {
+      const couponDoc = await Coupon.findById(cart.coupon.couponId);
+      if (couponDoc) {
+        const validation = await validateCouponForUser({ coupon: couponDoc, userId: req.user._id, subtotal });
+        if (!validation.ok) {
+          cart.coupon = undefined;
+          await cart.save();
+          return res.status(400).json({ error: couponReasonToMessage(validation.reason, couponDoc) });
+        }
+        discount = validation.discount;
+        couponInfo = {
+          couponId: couponDoc._id,
+          code: couponDoc.code,
+          type: couponDoc.type,
+          amount: couponDoc.amount,
+          discount,
+        };
+      } else {
+        cart.coupon = undefined;
+        await cart.save();
+      }
+    }
+
+    const totalBeforeDiscount = subtotal + shipping + tax;
+    const total = Math.max(0, totalBeforeDiscount - discount);
 
     const now = new Date();
     const items = cart.items.map((itemDoc) => {
@@ -151,8 +178,8 @@ export async function checkout(req, res, next) {
     cart.coupon = undefined;
     await cart.save();
 
-    if (couponId) {
-      incrementRedemptionCount(couponId).catch(() => {});
+    if (couponInfo) {
+      await Coupon.findByIdAndUpdate(couponInfo.couponId, { $inc: { redemptionCount: 1 } }).catch(() => {});
     }
 
     res.status(201).json({ order });

@@ -200,7 +200,7 @@ export default function AdminProductsPage() {
     if (!ok) return
     setErr('')
     try {
-      await api.del(`/products/${id}`)
+      await api.delete(`/products/${id}`)
       await fetchList()
       notify.success('Product deleted')
     } catch (e) {

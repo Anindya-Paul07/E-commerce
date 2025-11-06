@@ -14,5 +14,7 @@ r.delete('/item/listing/:listingId/:variantId', removeItem);
 r.post('/coupon', applyCoupon);
 r.delete('/coupon', removeCoupon);
 r.delete('/', clearCart);
+r.post('/coupon', applyCoupon);
+r.delete('/coupon', removeCoupon);
 
 export default r;
