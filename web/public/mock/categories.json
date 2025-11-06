@@ -1,0 +1,11 @@
+{
+  "items": [
+    { "_id": "mock-cat-audio", "name": "Audio Studio", "slug": "audio-studio", "sortOrder": 1, "isActive": true },
+    { "_id": "mock-cat-home", "name": "Modern Home", "slug": "modern-home", "sortOrder": 2, "isActive": true },
+    { "_id": "mock-cat-fashion", "name": "Future Fashion", "slug": "future-fashion", "sortOrder": 3, "isActive": true },
+    { "_id": "mock-cat-travel", "name": "Travel Atelier", "slug": "travel-atelier", "sortOrder": 4, "isActive": true }
+  ],
+  "total": 4,
+  "page": 1,
+  "pages": 1
+}

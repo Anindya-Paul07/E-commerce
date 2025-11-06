@@ -1,4 +1,12 @@
 const BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || '/api';
+const USE_MOCK_API = String(import.meta.env.VITE_USE_MOCK_API || '').toLowerCase() === 'true';
+
+const MOCK_GET_ROUTES = {
+  '/homepage': '/mock/homepage.json',
+  '/products': '/mock/products.json',
+  '/categories': '/mock/categories.json',
+  '/stats': '/mock/stats.json',
+};
 
 let TOKEN = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
 
@@ -11,9 +19,24 @@ export function setToken(token) {
 
 async function request(method, path, data, config = {}) {
   const { headers = {}, isForm = false, ...rest } = config;
+  const upperMethod = method.toUpperCase();
+  const [cleanPath] = path.split('?');
+
+  if (USE_MOCK_API && upperMethod === 'GET') {
+    const mockEndpoint = MOCK_GET_ROUTES[cleanPath];
+    if (mockEndpoint) {
+      const response = await fetch(mockEndpoint, { credentials: 'omit' });
+      if (!response.ok) {
+        const err = new Error(`Mock response failed for ${cleanPath}`);
+        err.status = response.status;
+        throw err;
+      }
+      return response.json();
+    }
+  }
 
   const fetchOptions = {
-    method: method.toUpperCase(),
+    method: upperMethod,
     credentials: 'include',
     ...rest,
     headers: {

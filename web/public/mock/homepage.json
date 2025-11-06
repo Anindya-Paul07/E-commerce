@@ -1,0 +1,142 @@
+{
+  "content": {
+    "slug": "default",
+    "hero": {
+      "eyebrow": "Marketplace reimagined",
+      "title": "A flagship experience for modern multi-brand commerce",
+      "subtitle": "Discover limited-run capsules and design-led essentials curated by our merchant team.",
+      "ctaLabel": "Browse featured drops",
+      "ctaHref": "/collections/featured",
+      "backgroundImage": "",
+      "enabled": true
+    },
+    "carousel": [],
+    "notification": {
+      "message": "",
+      "type": "info",
+      "ctaLabel": "",
+      "ctaHref": "",
+      "enabled": false
+    },
+    "couponBlocks": [],
+    "categoryCapsules": {
+      "heading": {
+        "eyebrow": "Curated universes",
+        "title": "Shop by editorial universe",
+        "subtitle": ""
+      },
+      "cta": {
+        "label": "Explore all categories",
+        "href": "/categories"
+      },
+      "items": [
+        {
+          "name": "Audio Studio",
+          "description": "Discover limited-run edits crafted by our merchant studio.",
+          "href": "/category/audio-studio",
+          "badge": "Story 1",
+          "mediaUrl": "",
+          "order": 0
+        },
+        {
+          "name": "Modern Home",
+          "description": "Discover limited-run edits crafted by our merchant studio.",
+          "href": "/category/modern-home",
+          "badge": "Story 2",
+          "mediaUrl": "",
+          "order": 1
+        },
+        {
+          "name": "Future Fashion",
+          "description": "Discover limited-run edits crafted by our merchant studio.",
+          "href": "/category/future-fashion",
+          "badge": "Story 3",
+          "mediaUrl": "",
+          "order": 2
+        },
+        {
+          "name": "Travel Atelier",
+          "description": "Discover limited-run edits crafted by our merchant studio.",
+          "href": "/category/travel-atelier",
+          "badge": "Story 4",
+          "mediaUrl": "",
+          "order": 3
+        }
+      ]
+    },
+    "brandHighlights": {
+      "heading": {
+        "eyebrow": "Partner studios",
+        "title": "Brands shaping the platform",
+        "subtitle": ""
+      },
+      "items": [
+        {
+          "name": "Studio Nova",
+          "description": "Sound-forward lifestyle brand crafting warm analog experiences for the digital era.",
+          "logoUrl": "https://images.unsplash.com/photo-1517430816045-df4b7de11d1d?auto=format&fit=crop&w=200&q=80",
+          "href": "#",
+          "order": 0
+        },
+        {
+          "name": "Aether & Co.",
+          "description": "Artful interior essentials blending tactile materials with mindful technology.",
+          "logoUrl": "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=200&q=80",
+          "href": "#",
+          "order": 1
+        },
+        {
+          "name": "Helix Athletics",
+          "description": "Performance wear engineered for motion with recycled textiles and adaptive fits.",
+          "logoUrl": "https://images.unsplash.com/photo-1542293787938-4d2226c12e81?auto=format&fit=crop&w=200&q=80",
+          "href": "#",
+          "order": 2
+        }
+      ]
+    },
+    "testimonials": {
+      "heading": {
+        "eyebrow": "Seller voices",
+        "title": "Why creators choose our marketplace",
+        "subtitle": ""
+      },
+      "items": [
+        {
+          "quote": "Every launch feels like a curated concept store. The merchandising is flawless.",
+          "name": "Danielle Truong",
+          "role": "Founder, Atelier Arc",
+          "avatarUrl": "",
+          "order": 0
+        },
+        {
+          "quote": "Our seller onboarding was refreshingly human. The marketplace tech is world-class.",
+          "name": "Mateo Díaz",
+          "role": "Director, Lumen Goods",
+          "avatarUrl": "",
+          "order": 1
+        }
+      ]
+    },
+    "sellerCta": {
+      "heading": "Launch your flagship inside a multi-brand icon",
+      "body": "We champion boutique labels with premium storytelling, unified logistics, and concierge support.",
+      "primaryCta": {
+        "label": "Submit seller application",
+        "href": "/seller/apply"
+      },
+      "secondaryCta": {
+        "label": "Seller dashboard",
+        "href": "/seller/dashboard"
+      }
+    },
+    "theme": {
+      "activePreset": "daylight",
+      "availablePresets": [],
+      "overrides": {}
+    },
+    "version": 1,
+    "published": true,
+    "createdAt": null,
+    "updatedAt": null
+  }
+}
