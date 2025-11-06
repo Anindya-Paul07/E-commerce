@@ -12,6 +12,11 @@ const cartSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true, index: true },
   items: { type: [cartItemSchema], default: [] },
   currency: { type: String, default: 'USD' },
+  coupon: {
+    couponId: { type: mongoose.Schema.Types.ObjectId, ref: 'Coupon', default: null },
+    code: { type: String, default: '' },
+    appliedAt: { type: Date, default: null },
+  }
 }, { timestamps: true });
 
 cartSchema.methods.subtotal = function () {

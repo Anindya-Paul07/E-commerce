@@ -161,11 +161,10 @@ export default function AdminProductsPage() {
   }
 
   async function del(id) {
-    // eslint-disable-next-line no-alert
     if (!confirm('Delete this product?')) return
     setErr('')
     try {
-      await api.del(`/products/${id}`)
+      await api.delete(`/products/${id}`)
       await fetchList()
     } catch (e) {
       setErr(e.message || 'Delete failed')

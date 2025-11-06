@@ -1,6 +1,8 @@
 import Order from '../model/order.model.js';
 import Cart from '../model/cart.model.js';
+import Coupon from '../model/coupon.model.js';
 import { commitForOrder } from './inventory.controller.js';
+import { validateCouponForUser, couponReasonToMessage } from '../lib/coupon.utils.js';
 
 function pad(n, w=5){ return String(n).padStart(w,'0'); }
 function orderNumber() {
@@ -19,14 +21,42 @@ export async function checkout(req, res, next) {
     const subtotal = cart.items.reduce((s, it) => s + it.price * it.qty, 0);
     const shipping = 0;
     const tax = 0;
-    const total = subtotal + shipping + tax;
+
+    let discount = 0;
+    let couponInfo = null;
+    if (cart.coupon?.couponId) {
+      const couponDoc = await Coupon.findById(cart.coupon.couponId);
+      if (couponDoc) {
+        const validation = await validateCouponForUser({ coupon: couponDoc, userId: req.user._id, subtotal });
+        if (!validation.ok) {
+          cart.coupon = undefined;
+          await cart.save();
+          return res.status(400).json({ error: couponReasonToMessage(validation.reason, couponDoc) });
+        }
+        discount = validation.discount;
+        couponInfo = {
+          couponId: couponDoc._id,
+          code: couponDoc.code,
+          type: couponDoc.type,
+          amount: couponDoc.amount,
+          discount,
+        };
+      } else {
+        cart.coupon = undefined;
+        await cart.save();
+      }
+    }
+
+    const totalBeforeDiscount = subtotal + shipping + tax;
+    const total = Math.max(0, totalBeforeDiscount - discount);
 
     // Create order (pending)
     const order = await Order.create({
       number: orderNumber(),
       user: req.user._id,
       items: cart.items.map(i => ({ ...i.toObject() })),
-      subtotal, shipping, tax, total,
+      subtotal, shipping, tax, discount, total,
+      coupon: couponInfo,
       currency: cart.currency || 'USD',
       status: 'pending',
       paymentMethod,
@@ -47,7 +77,12 @@ export async function checkout(req, res, next) {
 
     // Clear cart
     cart.items = [];
+    cart.coupon = undefined;
     await cart.save();
+
+    if (couponInfo) {
+      await Coupon.findByIdAndUpdate(couponInfo.couponId, { $inc: { redemptionCount: 1 } }).catch(() => {});
+    }
 
     res.status(201).json({ order });
   } catch (e) { next(e); }

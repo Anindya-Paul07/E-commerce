@@ -16,6 +16,8 @@ import orderRoutes from './router/order.route.js';
 import brandRoutes from './router/brand.route.js';
 import inventoryRoutes from './router/inventory.route.js'
 import warehouseRoutes from './router/warehouse.route.js'
+import adminRoutes from './router/admin.route.js'
+import couponRoutes from './router/coupon.route.js'
 
 
 const app = express();
@@ -41,6 +43,8 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/brands', brandRoutes);
 app.use('/api/inventory', inventoryRoutes)
 app.use('/api/warehouses', warehouseRoutes)
+app.use('/api/admin', adminRoutes)
+app.use('/api/coupons', couponRoutes)
 
 app.use(notFound);
 app.use(errorHandler);

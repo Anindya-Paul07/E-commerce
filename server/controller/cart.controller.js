@@ -1,6 +1,8 @@
 import Cart from '../model/cart.model.js';
 import Product from '../model/product.model.js';
+import Coupon from '../model/coupon.model.js';
 import { reserveForCart, releaseForCart } from './inventory.controller.js';
+import { loadCouponByCode, validateCouponForUser, couponReasonToMessage } from '../lib/coupon.utils.js';
 
 async function getOrCreateCart(userId) {
   let cart = await Cart.findOne({ user: userId });
@@ -8,10 +10,47 @@ async function getOrCreateCart(userId) {
   return cart;
 }
 
+async function buildCartPayload(cart, userId) {
+  const subtotal = cart.subtotal();
+  let discount = 0;
+  let couponInfo = null;
+  let couponError = null;
+
+  if (cart.coupon?.couponId) {
+    const couponDoc = await Coupon.findById(cart.coupon.couponId);
+    if (couponDoc) {
+      const validation = await validateCouponForUser({ coupon: couponDoc, userId, subtotal });
+      if (validation.ok) {
+        discount = validation.discount;
+        couponInfo = {
+          code: couponDoc.code,
+          type: couponDoc.type,
+          amount: couponDoc.amount,
+          maxDiscountValue: couponDoc.maxDiscountValue,
+          minSubtotal: couponDoc.minSubtotal,
+        };
+      } else {
+        couponError = couponReasonToMessage(validation.reason, couponDoc);
+        couponInfo = {
+          code: couponDoc.code,
+        };
+      }
+    } else {
+      // Coupon was deleted - clear it silently
+      cart.coupon = undefined;
+      await cart.save();
+    }
+  }
+
+  const total = Math.max(0, subtotal - discount);
+  return { cart, subtotal, discount, total, coupon: couponInfo, couponError };
+}
+
 export async function getCart(req, res, next) {
   try {
     const cart = await getOrCreateCart(req.user._id);
-    res.json({ cart, subtotal: cart.subtotal() });
+    const payload = await buildCartPayload(cart, req.user._id);
+    res.json(payload);
   } catch (e) { next(e); }
 }
 
@@ -42,7 +81,8 @@ export async function addItem(req, res, next) {
       });
     }
     await cart.save();
-    res.status(201).json({ cart, subtotal: cart.subtotal() });
+    const payload = await buildCartPayload(cart, req.user._id);
+    res.status(201).json(payload);
   } catch (e) { next(e); }
 }
 
@@ -66,7 +106,8 @@ export async function updateItem(req, res, next) {
 
     it.qty = n;
     await cart.save();
-    res.json({ cart, subtotal: cart.subtotal() });
+    const payload = await buildCartPayload(cart, req.user._id);
+    res.json(payload);
   } catch (e) { next(e); }
 }
 
@@ -80,7 +121,8 @@ export async function removeItem(req, res, next) {
       cart.items = cart.items.filter(i => String(i.product) !== String(productId));
       await cart.save();
     }
-    res.json({ cart, subtotal: cart.subtotal() });
+    const payload = await buildCartPayload(cart, req.user._id);
+    res.json(payload);
   } catch (e) { next(e); }
 }
 
@@ -93,7 +135,47 @@ export async function clearCart(req, res, next) {
     );
     await Promise.allSettled(releases);
     cart.items = [];
+    cart.coupon = undefined;
     await cart.save();
-    res.json({ cart, subtotal: 0 });
+    const payload = await buildCartPayload(cart, req.user._id);
+    res.json(payload);
+  } catch (e) { next(e); }
+}
+
+export async function applyCoupon(req, res, next) {
+  try {
+    const { code } = req.body || {};
+    if (!code) return res.status(400).json({ error: 'coupon_code_required' });
+
+    const cart = await getOrCreateCart(req.user._id);
+    const subtotal = cart.subtotal();
+    if (subtotal <= 0) return res.status(400).json({ error: 'Cart is empty' });
+
+    const couponDoc = await loadCouponByCode(code);
+    const validation = await validateCouponForUser({ coupon: couponDoc, userId: req.user._id, subtotal });
+    if (!validation.ok) {
+      return res.status(400).json({ error: couponReasonToMessage(validation.reason, couponDoc) });
+    }
+
+    cart.coupon = {
+      couponId: couponDoc._id,
+      code: couponDoc.code,
+      appliedAt: new Date(),
+    };
+    await cart.save();
+
+    const payload = await buildCartPayload(cart, req.user._id);
+    res.json(payload);
+  } catch (e) { next(e); }
+}
+
+export async function removeCoupon(req, res, next) {
+  try {
+    const cart = await getOrCreateCart(req.user._id);
+    cart.coupon = undefined;
+    await cart.save();
+
+    const payload = await buildCartPayload(cart, req.user._id);
+    res.json(payload);
   } catch (e) { next(e); }
 }
